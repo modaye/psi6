@@ -12,7 +12,7 @@ wheels/
 # Visual QA screenshots
 artifacts/
 
-# Local agent skill caches (not part of the published SDK)
+# Imported third-party agent caches (repo skill lives in skills/)
 .agents/
 .claude/
 skills-lock.json

@@ -16,7 +16,7 @@ description: >-
 ## 核心（先做这些）
 
 1. **运行时 `App`**：`App(name)` 创建应用，`app.run(window)` 进入循环。不要手写 `QApplication(sys.argv)`。
-   - 主题：`App(name, theme="light"|"dark"|"auto")`；自定义 `theme=Path("theme.toml")`（JSON / TOML / YAML 只覆盖 token，可含 `base`、`density`、`control_height`、`[button] radius`），不要写 QSS。YAML 需 `uv add pyyaml`。整个目录当主题包：`theme.toml` + `icons/*.svg`。运行中 `app.set_theme(...)`。
+   - 主题：`App(name, theme="light"|"dark"|"auto")`；自定义 `theme=Path("theme.toml")`（JSON / TOML / YAML 只覆盖 token，可含 `base`、`density`、`control_height`、`[button] radius`），不要写 QSS。YAML 需 `uv add pyyaml`。整个目录包：`theme.toml` + `icons/*.svg`。运行中 `app.set_theme(...)`。
    - 窗壳：主窗口用 `DesktopWindow`（自定义 `TitleBar`、圆角边框；最大化取消圆角）。`app.run(window, tray=True)` 接到 `TrayIcon`：关窗口隐藏到托盘，菜单「退出」才结束进程。默认防多开，第二份进程唤醒已有窗口。默认记住位置与最大化。
    - 配置：`App.load_config` / `save_config`。设置页用 `pydantic_settings`（`field_switch(..., group="扫描")`）。
    - 父子：子控件靠 `layout.addWidget` 获得父对象。不进布局的（覆盖层、边缘热区、Toast、对话框）才写 `parent=`。从布局移除时不要 `setParent(None)`，`hide()` 后 `deleteLater()`。初始化可以 `hide()`，不要主动 `show()`；主窗口树搭完后再 `show()`。
@@ -34,7 +34,7 @@ def run_job(params, *, on_progress, on_log, is_cancelled) -> JobOutcome: ...
 
 批处理窗：`BatchToolWindow(title=..., params=..., job=..., app=..., icon=..., exclusive=...)`。改结果展示覆盖 `present_outcome` / `tag_values`。
 
-对照窗口：`uv run python -m psi6 kit`。截图验收：`uv run python -m psi6 shot`。
+对照窗口：`python -m psi6 kit`。截图验收：`python -m psi6 shot`。
 
 ## 页面控件（按需，不要当成产品主线）
 

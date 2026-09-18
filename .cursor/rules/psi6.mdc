@@ -3,7 +3,7 @@ description: psi6 SDK 约定：任务不进 UI 线程，表单走 Pydantic，样
 alwaysApply: true
 ---
 
-在本仓库或基于 psi6 写桌面工具时，遵循 `.cursor/skills/psi6-desktop/SKILL.md`。
+在本仓库或基于 psi6 写桌面工具时，遵循 `skills/psi6-desktop/SKILL.md`。
 
 - 核心：`App`、`TaskRunner`、`BatchToolWindow`、主题 token、`DesktopWindow` / `TitleBar` / `TrayIcon`。
 - 表单 `pydantic_form` / `pydantic_settings`；路径 `FileInput` / `FolderInput`；结果 `DataTable`；过程 `LogPanel`；短句 `Notifier`。
