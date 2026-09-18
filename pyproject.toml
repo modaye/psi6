@@ -1,0 +1,61 @@
+[project]
+name = "psi6"
+version = "0.1.0"
+description = "PySide6 desktop SDK: App runtime, batch jobs, theme tokens, and window chrome."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "modaye", email = "flywacool@gmail.com" },
+]
+requires-python = ">=3.13"
+keywords = [
+    "pyside6",
+    "qt",
+    "desktop",
+    "gui",
+    "theme",
+    "tray",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+]
+dependencies = [
+    "pydantic>=2.11",
+    "pyside6>=6.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-qt>=4.4",
+    "pyyaml>=6",
+]
+yaml = ["pyyaml>=6"]
+
+[project.urls]
+Homepage = "https://github.com/modaye/psi6"
+Repository = "https://github.com/modaye/psi6"
+Issues = "https://github.com/modaye/psi6/issues"
+Changelog = "https://github.com/modaye/psi6/releases"
+
+[project.scripts]
+psi6 = "psi6.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+qt_api = "pyside6"
+testpaths = ["tests"]
+addopts = "-q"

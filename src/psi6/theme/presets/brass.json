@@ -1,0 +1,17 @@
+{
+  "base": "light",
+  "color_bg": "#f3efe6",
+  "color_surface": "#fbf7ee",
+  "color_sunken": "#fffdf8",
+  "color_hover": "#e7dfd0",
+  "color_text": "#2a241c",
+  "color_muted": "#6f6558",
+  "color_border": "#d4cbb8",
+  "color_primary": "#6b542e",
+  "color_on_primary": "#fbf7ee",
+  "color_focus": "#6b542e",
+  "color_sidebar": "#e9e1d2",
+  "color_sidebar_text": "#5a5144",
+  "color_user_bubble": "#6b542e",
+  "color_info": "#4d5f6e"
+}

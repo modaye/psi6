@@ -1,0 +1,8 @@
+base = "dark"
+density = "compact"
+color_primary = "#7a9e7e"
+control_height = 30
+motion_fast_ms = 120
+
+[button]
+radius = 8

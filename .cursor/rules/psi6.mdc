@@ -1,0 +1,13 @@
+---
+description: psi6 SDK 约定：任务不进 UI 线程，表单走 Pydantic，样式走 token。
+alwaysApply: true
+---
+
+在本仓库或基于 psi6 写桌面工具时，遵循 `.cursor/skills/psi6-desktop/SKILL.md`。
+
+- 核心：`App`、`TaskRunner`、`BatchToolWindow`、主题 token、`DesktopWindow` / `TitleBar` / `TrayIcon`。
+- 表单 `pydantic_form` / `pydantic_settings`；路径 `FileInput` / `FolderInput`；结果 `DataTable`；过程 `LogPanel`；短句 `Notifier`。
+- 任务进行中用 `DataTable.set_busy` 与 `TaskPanel`；同槽 `exclusive=` / `runner.is_busy`。成功/失败用 `Notifier`（会弹 Toast）。`info` 只进状态栏。
+- 主题用 `App(..., theme="light"|"dark"|"auto"|Path.toml/json/yaml)`，目录包为 `theme.toml` + `icons/*.svg`。禁止在 UI 线程做 IO；禁止业务里直接 `QFileDialog` / 手写 `QThread` / 散落 QSS。
+- 参考任务签名：`src/psi6/jobs/file_index.py`（示范 `run_job`，不是业务模板）。组件预览：`python -m psi6 kit`。
+- 改控件用构造参数或子类钩子；不要在本仓库加 Excel/PDF 行业模板，不要为某个产品堆叠首页主键。
