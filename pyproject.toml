@@ -1,6 +1,6 @@
 [project]
 name = "psi6"
-version = "0.1.0"
+version = "0.1.1"
 description = "PySide6 desktop SDK: App runtime, batch jobs, theme tokens, and window chrome."
 readme = "README.md"
 license = "MIT"
