@@ -17,27 +17,52 @@ def clear_icon_cache() -> None:
     _CACHE.clear()
 
 
-def pixmap_for(name: str, *, color: str, size: int = 16) -> QPixmap:
-    """按颜色渲染图标。``color`` 必须是 token 里的色值。"""
+def raster_px(logical: int, ratio: float) -> int:
+    """逻辑像素换成位图像素。比例低于 1 时仍用逻辑尺寸，避免图标被缩没。"""
 
-    key = (name, size, color.lower())
+    extent = max(1, int(logical))
+    return max(extent, round(extent * max(1.0, float(ratio))))
+
+
+def device_ratio() -> float:
+    """当前应用的设备像素比。没有应用时按 1。"""
+
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        return 1.0
+    return max(1.0, float(app.devicePixelRatio()))
+
+
+def pixmap_for(name: str, *, color: str, size: int = 16, ratio: float = 1.0) -> QPixmap:
+    """按颜色渲染图标。``color`` 必须是 token 里的色值。
+
+    ``size`` 是逻辑像素。``ratio`` 大于 1 时位图更大，并设置 ``devicePixelRatio``，
+    布局仍按逻辑尺寸占位。
+    """
+
+    scale = max(1.0, float(ratio))
+    pixels = raster_px(size, scale)
+    key = (name, pixels, color.lower(), scale)
     cached = _CACHE.get(key)
     if cached is not None:
         return cached
     markup = svg_for(name).replace("currentColor", color)
     renderer = QSvgRenderer(QByteArray(markup.encode("utf-8")))
-    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+    image = QImage(pixels, pixels, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    renderer.render(painter, QRectF(0, 0, size, size))
+    renderer.render(painter, QRectF(0, 0, pixels, pixels))
     painter.end()
     pix = QPixmap.fromImage(image)
+    pix.setDevicePixelRatio(scale)
     _CACHE[key] = pix
     return pix
 
 
-def icon_for(name: str, *, color: str, size: int = 16) -> QIcon:
-    """供按钮 ``setIcon`` 使用。"""
+def icon_for(name: str, *, color: str, size: int = 16, ratio: float | None = None) -> QIcon:
+    """供按钮 ``setIcon`` 使用。未给 ``ratio`` 时读取当前应用的设备像素比。"""
 
-    return QIcon(pixmap_for(name, color=color, size=size))
+    return QIcon(pixmap_for(name, color=color, size=size, ratio=device_ratio() if ratio is None else ratio))

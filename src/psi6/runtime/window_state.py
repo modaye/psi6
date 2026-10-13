@@ -22,7 +22,10 @@ def save_window(window: QWidget, store: ConfigStore, app_name: str) -> None:
 
 
 def restore_window(window: QWidget, store: ConfigStore, app_name: str) -> bool:
-    """恢复上次几何。无边框窗 ``restoreGeometry`` 常常丢最大化，所以另存一份标志。"""
+    """恢复上次几何。无边框窗 ``restoreGeometry`` 常常丢最大化，所以另存一份标志。
+
+    存的是逻辑像素。高 DPI 下不乘 ``devicePixelRatio``，缩放策略保持 ``PassThrough``。
+    """
 
     payload = store.load_data(app_name, _FILE)
     if not payload:
@@ -30,7 +33,13 @@ def restore_window(window: QWidget, store: ConfigStore, app_name: str) -> bool:
     blob = payload.get("geometry")
     if not isinstance(blob, str) or not blob:
         return False
-    restored = bool(window.restoreGeometry(QByteArray.fromBase64(blob.encode("ascii"))))
+    try:
+        raw = QByteArray.fromBase64(blob.encode("ascii"))
+    except UnicodeEncodeError:
+        return False
+    if raw.isEmpty():
+        return False
+    restored = bool(window.restoreGeometry(raw))
     if restored and payload.get("maximized") and not window.isMaximized():
         window.showMaximized()
     return restored

@@ -20,4 +20,6 @@ def main() -> None:
         icon="folder",
         exclusive="batch",
     )
-    raise SystemExit(app.run(window, tray=True, single_instance=True))
+    raise SystemExit(
+        app.run(window, tray=True, single_instance=True, restore_geometry=True)
+    )

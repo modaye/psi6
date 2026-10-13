@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -20,6 +19,8 @@ from PySide6.QtWidgets import (
 
 from psi6.icons.glyphs import icon_names
 from psi6.runtime.app import App
+from psi6.theme.builtin import Brass, Compact
+from psi6.theme.theme import Theme
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
 from psi6.ui.banner import Banner
@@ -64,9 +65,6 @@ _DESTINATIONS = (
     NavDestination("icons", "图标", "search"),
     NavDestination("theme", "主题", "sun"),
 )
-
-_PRESET_BRASS = Path(__file__).resolve().parents[1] / "theme" / "presets" / "brass.json"
-_PRESET_COMPACT = Path(__file__).resolve().parents[1] / "theme" / "presets" / "compact.json"
 
 
 class KitPrefs(BaseModel):
@@ -123,7 +121,7 @@ class KitWindow(DesktopWindow):
         for page_id, factory in pages.items():
             self.shell.add_page(page_id, factory())
         self.shell.show_page("tool")
-        self.statusBar().showMessage("默认钢蓝工作台 · SVG 描边图标 · JSON 覆盖主题")
+        self.statusBar().showMessage("默认钢蓝工作台 · SVG 描边图标 · Python 主题")
         self._palette = CommandPalette(self)
         self._palette.set_commands(
             [
@@ -443,7 +441,7 @@ class KitWindow(DesktopWindow):
     def _page_theme(self) -> QWidget:
         header = PageHeader(
             "主题与扩展",
-            hint="light/dark 预设；JSON 覆盖色、尺寸、密度、图标；开关和自定义控件都读同一套 token。",
+            hint="light / dark / auto，或一个 Theme 子类。开关和自定义控件都读同一套 token。",
             icon="settings",
         )
         body = QWidget()
@@ -457,8 +455,8 @@ class KitWindow(DesktopWindow):
         follow = primary_button("跟随系统")
         light.clicked.connect(lambda: self._apply_theme("light"))
         dark.clicked.connect(lambda: self._apply_theme("dark"))
-        brass.clicked.connect(lambda: self._apply_theme(_PRESET_BRASS))
-        compact.clicked.connect(lambda: self._apply_theme(_PRESET_COMPACT))
+        brass.clicked.connect(lambda: self._apply_theme(Brass))
+        compact.clicked.connect(lambda: self._apply_theme(Compact))
         follow.clicked.connect(lambda: self._apply_theme("auto"))
         actions.add_left(light)
         actions.add_left(dark)
@@ -470,8 +468,8 @@ class KitWindow(DesktopWindow):
         prefs.applied.connect(self._on_kit_prefs)
         col.addWidget(prefs)
         help_text = QLabel(
-            "自定义主题：JSON / TOML / YAML 覆盖 token。图标用主题旁 icons/ 同名 svg。\n"
-            "自绘：token_color / token_int / token_ms。覆盖单个图标：register_icon。"
+            "自定义主题：子类化 Theme，类属性必须是 Tokens 字段名。\n"
+            "图标放在主题模块旁边的 icons/，文件名与 Icon 相同。自绘读 token_color / token_int / token_ms。"
         )
         help_text.setObjectName("psi6Hint")
         help_text.setWordWrap(True)
@@ -479,16 +477,16 @@ class KitWindow(DesktopWindow):
         sample = QPlainTextEdit()
         sample.setReadOnly(True)
         sample.setPlainText(
-            "base = \"dark\"\n"
-            "density = \"compact\"\n"
-            "color_primary = \"#7a9e7e\"\n"
-            "control_height = 30\n"
-            "motion_fast_ms = 120\n"
+            "from psi6.theme import Theme\n"
             "\n"
-            "[button]\n"
-            "radius = 8\n"
+            "class Midnight(Theme):\n"
+            "    name = \"midnight\"\n"
+            "    base = \"dark\"\n"
+            "    color_primary = \"#7a9e7e\"\n"
+            "    control_height = 30\n"
+            "    button_radius = 8\n"
             "\n"
-            "# 同目录 icons/search.svg 会替换 Icon(\"search\")\n"
+            "# 与 midnight.py 同目录的 icons/search.svg 会替换 Icon(\"search\")\n"
         )
         col.addWidget(sample, stretch=1)
         return self._wrap(header, body)
@@ -501,12 +499,17 @@ class KitWindow(DesktopWindow):
         if model.notify:
             self._banner.set_notice("通知已打开", tone="success")
 
-    def _apply_theme(self, theme: str | Path) -> None:
+    def _apply_theme(self, theme: str | Theme | type[Theme]) -> None:
         self._app.set_theme(theme)
         self.shell.sidebar.apply_metrics()
         self.shell.sidebar.refresh_icons()
         self.update()
-        name = theme if isinstance(theme, str) else theme.stem
+        if isinstance(theme, str):
+            name = theme
+        elif isinstance(theme, type):
+            name = theme.name
+        else:
+            name = theme.name
         self._banner.set_notice(f"已应用主题：{name}", tone="success")
         self.statusBar().showMessage(f"主题 {name} · primary {self._app.tokens.color_primary}")
 
@@ -515,4 +518,4 @@ def main() -> None:
     """打开场景图库。"""
 
     app = App("psi6-kit", theme="light")
-    raise SystemExit(app.run(KitWindow(app), tray=True, single_instance=False))
+    raise SystemExit(app.run(KitWindow(app), tray=True, restore_geometry=True))

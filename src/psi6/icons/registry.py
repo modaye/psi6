@@ -1,4 +1,4 @@
-"""图标覆盖：代码注册优先，其次主题目录 / JSON，最后内置 glyph。"""
+"""图标覆盖：``register_icon`` 优先，其次主题 ``icon_dir``，最后内置 glyph。"""
 
 from __future__ import annotations
 

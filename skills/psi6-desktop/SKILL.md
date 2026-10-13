@@ -16,19 +16,23 @@ description: >-
 ## 核心（先做这些）
 
 1. **运行时 `App`**：`App(name)` 创建应用，`app.run(window)` 进入循环。不要手写 `QApplication(sys.argv)`。
-   - 主题：`App(name, theme="light"|"dark"|"auto")`；自定义 `theme=Path("theme.toml")`（JSON / TOML / YAML 只覆盖 token，可含 `base`、`density`、`control_height`、`[button] radius`），不要写 QSS。YAML 需 `uv add pyyaml`。整个目录包：`theme.toml` + `icons/*.svg`。运行中 `app.set_theme(...)`。
-   - 窗壳：主窗口用 `DesktopWindow`（自定义 `TitleBar`、圆角边框；最大化取消圆角）。`app.run(window, tray=True)` 接到 `TrayIcon`：关窗口隐藏到托盘，菜单「退出」才结束进程。默认防多开，第二份进程唤醒已有窗口。默认记住位置与最大化。
+   - 主题：`App(name, theme="light"|"dark"|"auto")`，或传入 `Theme` 子类。类属性必须是 `Tokens` 字段名，写错会在加载时抛错。不要写 QSS，也不要用 JSON / TOML / YAML 描述主题。运行中 `app.set_theme(...)`。
+   - 图标：与主题模块同目录的 `icons/search.svg` 覆盖 `Icon("search")`。路径相对该模块文件，不相对进程工作目录。仍可用 `register_icon`。
+   - 窗壳：主窗口用 `DesktopWindow`（自定义 `TitleBar`、圆角边框；最大化取消圆角）。`app.run(window, tray=True)` 在系统有托盘时接到 `TrayIcon`：关窗口隐藏到托盘，菜单「退出」才结束进程。
+   - 默认允许多开，也不记住窗口位置。需要时 `app.run(window, single_instance=True, restore_geometry=True)`。
+   - 关掉窗口不取消任务。应用退出时才按「窗口几何 → `runner.shutdown()` → 单实例锁 → 隐藏托盘」收尾。
+   - `tray=True` 且系统有托盘时，关窗口是隐藏。没有托盘时关闭仍退出，不要假设进程会留在后台。
    - 配置：`App.load_config` / `save_config`。设置页用 `pydantic_settings`（`field_switch(..., group="扫描")`）。
    - 父子：子控件靠 `layout.addWidget` 获得父对象。不进布局的（覆盖层、边缘热区、Toast、对话框）才写 `parent=`。从布局移除时不要 `setParent(None)`，`hide()` 后 `deleteLater()`。初始化可以 `hide()`，不要主动 `show()`；主窗口树搭完后再 `show()`。
-2. **批处理 `TaskRunner` / `BatchToolWindow`**：读盘、扫目录、网络必须 `app.runner.submit`（或交给 `BatchToolWindow` 的 `job`）。不要手写 `QThread`。
+2. **任务 `TaskRunner`，界面 `BatchToolWindow`**：读盘、扫目录、网络必须 `app.runner.submit`。`BatchToolWindow` 只接表单和结果表，不自己调度。不要手写 `QThread`。
 
 ```python
 def run_job(params, *, on_progress, on_log, is_cancelled) -> JobOutcome: ...
 ```
 
-取消时 `raise InterruptedError`。返回 `JobOutcome(rows=..., message=...)`。同一槽同时只跑一份：`runner.submit(..., exclusive="batch")` 或 `BatchToolWindow(..., exclusive="scan")`。进度默认 50ms 节流。`runner.is_busy("scan")` 查槽。任务条用 `TaskPanel`（开始 / 取消 / 进度）。合同见 `psi6.jobs.file_index`，那不是要复制的行业模板。
-3. **主题**：颜色、尺寸、时长只用 token。自绘 `create_painter` / `rounded_rect_path` / `mix_color`，读 `token_color` / `token_int` / `token_ms`。图标 `Icon("search")` / `IconButton`，主题旁 `icons/search.svg` 同名覆盖，或 `register_icon`。不要 emoji、不要页面私有 QSS。动画只调时长 token；`reduced_motion: 1` 或时长 `0` 关闭。按下缩小：`install_press_scale`。
-4. **窗壳通用件**：`TitleBar`（拖动、双击最大化、从最大化拖出还原）、`DesktopWindow.set_icon`、`TrayIcon.refresh`（换主题重绘）、`SingleInstance`。多页用 `AppShell` + `NavDestination`（`set_sidebar_compact`，宽度走 `token_ms`）。
+取消时 `raise InterruptedError`。返回 `JobOutcome(rows=..., message=...)` 只表示要填进表的结果。执行状态看 `TaskHandle.status`。同一槽同时只跑一份：`runner.submit(..., exclusive="batch")`。`runner.is_busy("scan")` 查的是这个槽。进度默认 50ms 节流。任务条用 `TaskPanel`。合同见 `psi6.jobs.file_index`，那不是要复制的行业模板。
+3. **主题**：颜色、尺寸、时长只用 token。自绘 `create_painter` / `rounded_rect_path` / `mix_color`，读 `token_color` / `token_int` / `token_ms`。不要 emoji、不要页面私有 QSS。动画只调时长 token；`reduced_motion: 1` 或时长 `0` 关闭。按下缩小：`install_press_scale`。对比度用 `contrast_notes(tokens)`，它只返回说明，不阻止 `Theme` 加载。结构错误（未知字段、错误的 `base`、显式图标目录不存在）才抛错。高 DPI 使用 `PassThrough`，几何是逻辑像素，图标按 `devicePixelRatio` 栅格化。
+4. **窗壳通用件**：`TitleBar`（拖动、双击最大化、从最大化拖出还原）、`DesktopWindow.set_icon`、`TrayIcon.refresh`（换主题重绘）、`SingleInstance`（仅在 `single_instance=True` 时使用）。多页用 `AppShell` + `NavDestination`（`set_sidebar_compact`，宽度走 `token_ms`）。
 
 表单用 Pydantic + `pydantic_form` / `field_dir` / `field_file`。路径行用 `FileInput` / `FolderInput`，不要业务里直接 `QFileDialog`。用户短句用 `app.notifier`（`info` 只进状态栏）；必须看见的错误用 `fail`/`warn`；过程记录用 `LogPanel` + `LogRecord`。任务进行中 `DataTable.set_busy`。
 

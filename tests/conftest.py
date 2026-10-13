@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from psi6.runtime.qt_env import install_high_dpi_policy
+
+install_high_dpi_policy()
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 _windir = os.environ.get("WINDIR")
 if _windir:

@@ -41,9 +41,28 @@ def detect_font_dir() -> Path | None:
     return None
 
 
-def prepare_qt_environment() -> Path | None:
-    """必须在创建 ``QApplication`` 之前调用。设置 ``QT_QPA_FONTDIR``。"""
+def install_high_dpi_policy() -> None:
+    """在创建 ``QApplication`` 之前固定缩放取整。
 
+    ``PassThrough`` 保留 125%、150% 这类分数倍。窗口几何仍按逻辑像素保存和恢复，
+    不乘 ``devicePixelRatio``。应用已经存在时不再改，Qt 会忽略事后设置。
+    """
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QApplication
+
+    if QApplication.instance() is not None:
+        return
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+
+
+def prepare_qt_environment() -> Path | None:
+    """必须在创建 ``QApplication`` 之前调用。设置字体目录和高 DPI 策略。"""
+
+    install_high_dpi_policy()
     if os.environ.get("QT_QPA_FONTDIR"):
         path = Path(os.environ["QT_QPA_FONTDIR"])
         return path if path.is_dir() else None

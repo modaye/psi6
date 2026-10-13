@@ -1,6 +1,6 @@
 [project]
 name = "psi6"
-version = "0.1.1"
+version = "0.2.0"
 description = "PySide6 desktop SDK: App runtime, batch jobs, theme tokens, and window chrome."
 readme = "README.md"
 license = "MIT"
@@ -38,9 +38,7 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-qt>=4.4",
-    "pyyaml>=6",
 ]
-yaml = ["pyyaml>=6"]
 
 [project.urls]
 Homepage = "https://github.com/modaye/psi6"

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from psi6.runtime.app import App
 from psi6.runtime.job import JobOutcome
 from psi6.runtime.logs import LogLevel, LogRecord
+from psi6.runtime.qt_alive import qt_alive
 from psi6.runtime.tasks import TaskHandle
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.banner import Banner
@@ -34,10 +35,10 @@ JobFn = Callable[..., Any]
 
 
 class BatchToolWindow(DesktopWindow):
-    """表单 + 任务条 + 结果表 + 日志的组合窗。
+    """表单 + 任务条 + 结果表 + 日志。
 
-    业务传入 ``params`` 与 ``job``。同一槽同时只跑一份（默认 ``exclusive="batch"``）。
-    要改结构时子类覆盖钩子或使用公开属性，不要改 ``_`` 私有成员。
+    任务调度只走 ``App.runner``（``exclusive`` 单飞槽）。本窗口不另建线程或状态机。
+    成功时把返回值收成 ``JobOutcome`` 再填表。子类覆盖 ``present_outcome`` / ``tag_values``。
     """
 
     def __init__(
@@ -254,16 +255,22 @@ class BatchToolWindow(DesktopWindow):
             self._app.notifier.warning("正在取消…")
 
     def _on_progress(self, current: int, total: int, message: str) -> None:
+        if not qt_alive(self):
+            return
         self._task_panel.set_running(current, total, message)
         self._table.set_busy(True, message)
         self._app.notifier.info(message)
 
     def _on_log(self, record: object) -> None:
+        if not qt_alive(self):
+            return
         if isinstance(record, LogRecord):
             self._log.append(record)
             self._refresh_stats()
 
     def _on_succeeded(self, result: object) -> None:
+        if not qt_alive(self):
+            return
         outcome = JobOutcome.from_raw(result)
         self._table.set_busy(False)
         self.present_outcome(outcome)
@@ -277,6 +284,8 @@ class BatchToolWindow(DesktopWindow):
         self._handle = None
 
     def _on_failed(self, message: str) -> None:
+        if not qt_alive(self):
+            return
         text = message.strip() or "任务失败"
         self._table.set_busy(False)
         self._task_panel.set_failed(text)
@@ -287,6 +296,8 @@ class BatchToolWindow(DesktopWindow):
         self._handle = None
 
     def _on_cancelled(self) -> None:
+        if not qt_alive(self):
+            return
         self._table.set_busy(False)
         self._task_panel.set_idle("已取消")
         self._app.notifier.warning("已取消")

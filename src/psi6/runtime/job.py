@@ -9,7 +9,10 @@ from typing import Any
 
 @dataclass
 class JobOutcome:
-    """一次任务结束后的表格行与状态文案。"""
+    """批处理成功后交给表格的结果。
+
+    这不是任务执行状态。排队、运行、失败和取消看 ``TaskHandle.status``。
+    """
 
     rows: list[dict[str, Any]] = field(default_factory=list)
     message: str = "完成"

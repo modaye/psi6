@@ -60,19 +60,15 @@ def test_dark_stylesheet_does_not_use_light_canvas() -> None:
     assert Tokens.light().color_bg not in css
 
 
-def test_tokens_overlay_and_json_roundtrip(tmp_path: Path) -> None:
+def test_tokens_overlay_rejects_unknown_keys() -> None:
     dark = Tokens.dark().overlay({"color_primary": "#7a9e7e", "radius": 8, "motion_fast_ms": 80})
     assert dark.color_primary == "#7a9e7e"
     assert dark.radius == 8
     assert dark.button_radius == 8
     assert dark.motion_fast_ms == 80
     assert dark.color_bg == Tokens.dark().color_bg
-    path = tmp_path / "theme.json"
-    dark.dump(path, base="dark")
-    loaded = Tokens.load(path)
-    assert loaded.color_primary == "#7a9e7e"
-    assert loaded.color_bg == Tokens.dark().color_bg
-    assert loaded.motion_fast_ms == 80
+    with pytest.raises(ValueError, match="未知 token"):
+        Tokens.light().overlay({"color_primry": "#fff"})
 
 
 def test_density_and_nested_button_tokens() -> None:
@@ -91,34 +87,46 @@ def test_density_and_nested_button_tokens() -> None:
     assert reduced.motion_ms == 0
 
 
-def test_resolve_tokens_from_json_path(tmp_path: Path) -> None:
-    path = tmp_path / "user.json"
-    path.write_text('{"base": "dark", "color_primary": "#4d7c5a"}', encoding="utf-8")
+def test_python_theme_overrides_and_rejects_typos() -> None:
+    from psi6.theme.builtin import Brass, Compact
+    from psi6.theme.theme import Theme
     from psi6.theme.tokens import resolve_tokens
 
-    tokens = resolve_tokens(path)
-    assert tokens.color_primary == "#4d7c5a"
-    assert tokens.color_bg == Tokens.dark().color_bg
+    brass = resolve_tokens(Brass)
+    assert brass.color_primary == "#6b542e"
+    assert brass.color_bg == "#f3efe6"
+    compact = Compact().tokens()
+    assert compact.density == "compact"
+    assert compact.control_height == 28
 
+    class Midnight(Theme):
+        name = "midnight"
+        base = "dark"
+        color_primary = "#4d7c5a"
+        button_radius = 8
 
-def test_tokens_load_toml_and_yaml(tmp_path: Path) -> None:
-    toml_path = tmp_path / "user.toml"
-    toml_path.write_text(
-        'base = "dark"\ncolor_primary = "#4d7c5a"\n\n[button]\nradius = 8\n',
-        encoding="utf-8",
-    )
-    from psi6.theme.tokens import resolve_tokens
-
-    loaded = resolve_tokens(toml_path)
+    loaded = resolve_tokens(Midnight)
     assert loaded.color_primary == "#4d7c5a"
     assert loaded.button_radius == 8
     assert loaded.color_bg == Tokens.dark().color_bg
-    yaml = pytest.importorskip("yaml")
-    del yaml
-    yaml_path = tmp_path / "user.yaml"
-    yaml_path.write_text("base: dark\ncolor_primary: '#4d7c5a'\n", encoding="utf-8")
-    yaml_tokens = Tokens.load(yaml_path)
-    assert yaml_tokens.color_primary == "#4d7c5a"
+
+    with pytest.raises(TypeError, match="未知 token"):
+
+        class Broken(Theme):
+            color_primry = "#fff"
+
+        Broken().tokens()
+
+
+def test_theme_file_paths_are_rejected(tmp_path: Path) -> None:
+    from psi6.theme.tokens import resolve_tokens
+
+    path = tmp_path / "user.toml"
+    path.write_text('base = "dark"\n', encoding="utf-8")
+    with pytest.raises(TypeError, match="Python"):
+        resolve_tokens(path)
+    with pytest.raises(TypeError, match="Python"):
+        resolve_tokens("theme.yaml")
 
 
 def test_app_switches_light_and_dark_theme(qtbot: QtBot, tmp_path: Path) -> None:

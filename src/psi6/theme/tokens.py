@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, fields, replace
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -33,7 +33,8 @@ class Tokens:
     """桌面工具视觉变量。
 
     面向 Windows 上的批处理/内部工具：冷灰底 + 钢蓝强调。
-    用户自定义：在 light/dark 上覆盖 JSON / TOML / YAML，不要手写整份 QSS。
+    用户自定义：子类化 ``psi6.theme.Theme``，或 ``overlay`` 覆盖字段。不要手写整份 QSS，
+    也不要再用 JSON / TOML / YAML 描述主题。
     动画只暴露时长：``motion_fast_ms`` / ``motion_ms``（毫秒，``0`` 关闭）。
     ``density`` 为 ``comfortable`` 或 ``compact``；紧凑会填未写出的尺寸键。
     组件级覆盖可用嵌套：``button.radius``、``title_bar.height``、``switch.width``。
@@ -118,10 +119,13 @@ class Tokens:
         )
 
     def overlay(self, data: Mapping[str, Any]) -> Tokens:
-        """用字典覆盖部分字段。未知键忽略。"""
+        """用字典覆盖部分字段。未知键抛出 ``ValueError``，避免拼写错误被静默丢掉。"""
 
         allowed = {item.name: item for item in fields(self)}
         flat = _flatten_overlay(data)
+        unknown = sorted(key for key in flat if key not in allowed)
+        if unknown:
+            raise ValueError(f"未知 token：{', '.join(unknown)}")
         kwargs: dict[str, Any] = {}
         for key, value in flat.items():
             if key not in allowed:
@@ -129,7 +133,9 @@ class Tokens:
             current = getattr(self, key)
             if key == "density":
                 text = str(value).strip().lower()
-                kwargs[key] = "compact" if text == "compact" else "comfortable"
+                if text not in {"comfortable", "compact"}:
+                    raise ValueError(f"density 只能是 comfortable 或 compact，收到 {value!r}")
+                kwargs[key] = text
             elif key == "icons":
                 kwargs[key] = _as_icon_pairs(value)
             elif isinstance(current, int):
@@ -152,62 +158,42 @@ class Tokens:
             kwargs["reduced_motion"] = 1
         return replace(self, **kwargs) if kwargs else self
 
-    def to_dict(self) -> dict[str, Any]:
-        """可写入 JSON 的扁平字典。``icons`` 写成对象。"""
-
-        payload = asdict(self)
-        icons = payload.pop("icons", ())
-        if icons:
-            payload["icons"] = {name: svg for name, svg in icons}
-        if not payload.get("icon_dir"):
-            payload.pop("icon_dir", None)
-        return payload
-
-    @classmethod
-    def load(cls, path: str | Path, *, base: str | None = None) -> Tokens:
-        """从 JSON / TOML / YAML 或主题目录读取。文件可含 ``base``: ``light`` / ``dark``。
-
-        未写 ``icon_dir`` 时，自动使用旁边的 ``icons/``（或 ``icons/<文件名>/``）里
-        与内置图标同名的 ``.svg``。
-        """
-
-        from psi6.theme.files import discover_icon_dir, read_theme_payload
-
-        payload, source = read_theme_payload(path)
-        root_name = base or str(payload.get("base") or "light")
-        root = cls.dark() if root_name == "dark" else cls.light()
-        tokens = root.overlay(payload)
-        found = discover_icon_dir(source, explicit=tokens.icon_dir)
-        if found is None:
-            return tokens
-        return replace(tokens, icon_dir=str(found))
-
-    def dump(self, path: str | Path, *, base: str = "light") -> None:
-        """按后缀写出可再 ``load`` 的主题（含 base）。支持 ``.json`` / ``.toml`` / ``.yaml``。"""
-
-        from psi6.theme.files import write_theme_payload
-
-        write_theme_payload(path, {"base": base, **self.to_dict()})
-
-
 DEFAULT_TOKENS = Tokens.light()
 
 
-def resolve_tokens(theme: str | Tokens | Path | None = None) -> Tokens:
-    """``light`` / ``dark`` / ``auto`` / ``Tokens`` / JSON·TOML·YAML 路径 / 主题目录。"""
+def resolve_tokens(theme: str | Tokens | Any | None = None) -> Tokens:
+    """``light`` / ``dark`` / ``auto`` / ``Tokens`` / ``Theme`` 类或实例。
 
-    from psi6.theme.files import is_theme_source
+    主题文件路径会抛出 ``TypeError``。图标仍由主题类的模块目录解析。
+    """
+
     from psi6.theme.system import system_prefers_dark
+    from psi6.theme.theme import Theme
 
+    if isinstance(theme, type) and issubclass(theme, Theme):
+        theme = theme()
+    if isinstance(theme, Theme):
+        return theme.tokens()
     if isinstance(theme, Tokens):
         return theme
     if isinstance(theme, str) and theme.lower() in {"auto", "system"}:
         return Tokens.dark() if system_prefers_dark() else Tokens.light()
     if theme == "dark":
         return Tokens.dark()
-    if isinstance(theme, Path) or (isinstance(theme, str) and is_theme_source(theme)):
-        return Tokens.load(theme)
-    return Tokens.light()
+    if theme in {None, "light"}:
+        return Tokens.light()
+    if isinstance(theme, Path) or _looks_like_theme_file(theme):
+        raise TypeError(
+            "主题用 Python 类定义，例如 App(name, theme=MyTheme)。不再读取 JSON、TOML 或 YAML。"
+        )
+    raise TypeError(f"无法识别的主题：{theme!r}")
+
+
+def _looks_like_theme_file(theme: Any) -> bool:
+    if not isinstance(theme, str):
+        return False
+    suffix = Path(theme).suffix.lower()
+    return suffix in {".json", ".toml", ".yaml", ".yml"}
 
 
 def _flatten_overlay(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -219,6 +205,10 @@ def _flatten_overlay(data: Mapping[str, Any]) -> dict[str, Any]:
             continue
         nested = _NESTED_FIELDS.get(key)
         if nested is not None and isinstance(value, Mapping):
+            extra = sorted(set(value) - set(nested))
+            if extra:
+                joined = ", ".join(f"{key}.{item}" for item in extra)
+                raise ValueError(f"未知 token：{joined}")
             for nested_key, field_name in nested.items():
                 if nested_key in value:
                     flat[field_name] = value[nested_key]

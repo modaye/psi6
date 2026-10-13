@@ -6,7 +6,7 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
 
-from psi6.icons.render import icon_for
+from psi6.icons.render import device_ratio, icon_for
 from psi6.theme.runtime import token_int
 from psi6.ui.desktop_window import DesktopWindow
 from psi6.ui.icon import token_color
@@ -76,7 +76,7 @@ class TrayIcon(QObject):
 
     def _make_icon(self) -> QIcon:
         color = token_color(self._window)
-        return icon_for(self._icon_name, color=color, size=token_int("icon_size", 16))
+        return icon_for(self._icon_name, color=color, size=token_int("icon_size", 16), ratio=device_ratio())
 
     def refresh(self) -> None:
         """按当前 token 重绘托盘图标。无托盘时为空操作。"""

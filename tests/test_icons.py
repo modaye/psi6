@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import importlib.util
+import os
+import sys
 from pathlib import Path
 
 from pytestqt.qtbot import QtBot
@@ -9,6 +12,7 @@ from pytestqt.qtbot import QtBot
 from psi6.icons.glyphs import GLYPHS
 from psi6.icons.registry import clear_icon_overrides, register_icon, svg_for
 from psi6.runtime.app import App
+from psi6.theme.theme import Theme
 from psi6.theme.tokens import Tokens
 
 
@@ -31,45 +35,65 @@ def test_theme_icon_dir_overrides(qtbot: QtBot, tmp_path: Path) -> None:
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24"/></svg>',
         encoding="utf-8",
     )
-    theme = tmp_path / "theme.json"
-    Tokens.light().overlay({"icon_dir": str(folder)}).dump(theme)
-    app = App("psi6-icon-dir", theme=theme, config_root=tmp_path)
+
+    class Marked(Theme):
+        name = "marked"
+        icon_dir = str(folder)
+
+    app = App("psi6-icon-dir", theme=Marked, config_root=tmp_path)
     assert app.qt_app is not None
     assert "<rect" in svg_for("search")
     app.set_theme("light")
     assert svg_for("search") == GLYPHS["search"]
 
 
-def test_theme_pack_uses_same_name_svgs(qtbot: QtBot, tmp_path: Path) -> None:
+def test_theme_module_icons_ignore_cwd(qtbot: QtBot, tmp_path: Path, monkeypatch) -> None:
     del qtbot
-    pack = tmp_path / "ocean"
+    pack = tmp_path / "pack"
     icons = pack / "icons"
     icons.mkdir(parents=True)
-    pack.joinpath("theme.toml").write_text('base = "dark"\ncolor_primary = "#4d7c5a"\n', encoding="utf-8")
     icons.joinpath("search.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>',
         encoding="utf-8",
     )
-    app = App("psi6-icon-pack", theme=pack, config_root=tmp_path)
+    source = pack / "midnight.py"
+    source.write_text(
+        "from psi6.theme import Theme\n"
+        "\n"
+        "class Midnight(Theme):\n"
+        "    name = 'midnight'\n"
+        "    base = 'dark'\n"
+        "    color_primary = '#4d7c5a'\n",
+        encoding="utf-8",
+    )
+    spec = importlib.util.spec_from_file_location("psi6_test_midnight", source)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    monkeypatch.chdir(tmp_path)
+    assert Path(os.getcwd()) == tmp_path
+    app = App("psi6-icon-pack", theme=module.Midnight, config_root=tmp_path / "cfg")
     assert app.tokens.color_primary == "#4d7c5a"
+    assert Path(app.tokens.icon_dir) == icons.resolve()
     assert "<circle" in svg_for("search")
     app.set_theme("light")
     assert svg_for("search") == GLYPHS["search"]
 
 
-def test_theme_file_uses_icons_stem_folder(tmp_path: Path) -> None:
-    theme = tmp_path / "dark.toml"
-    theme.write_text('base = "dark"\n', encoding="utf-8")
-    named = tmp_path / "icons" / "dark"
-    named.mkdir(parents=True)
-    named.joinpath("play.svg").write_text(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6v12l10-6z"/></svg>',
-        encoding="utf-8",
-    )
-    loaded = Tokens.load(theme)
-    folder = Path(loaded.icon_dir)
-    assert folder.name == "dark"
-    assert folder.parent.name == "icons"
-    app = App("psi6-icon-stem", theme=theme, config_root=tmp_path)
-    assert "<path" in svg_for("play")
-    app.set_theme("light")
+def test_missing_explicit_icon_dir_raises(tmp_path: Path) -> None:
+    class Missing(Theme):
+        icon_dir = "no-such-icons"
+
+    # 相对路径相对定义类的模块（本测试文件所在目录），不相对 tmp_path / cwd。
+    del tmp_path
+    try:
+        Missing().tokens()
+    except FileNotFoundError as exc:
+        assert "no-such-icons" in str(exc)
+    else:
+        raise AssertionError("缺失的 icon_dir 应抛出 FileNotFoundError")
+
+
+def test_light_tokens_have_no_icon_dir() -> None:
+    assert Tokens.light().icon_dir == ""

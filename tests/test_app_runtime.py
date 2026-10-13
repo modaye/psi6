@@ -92,3 +92,25 @@ def test_restore_maximized_flag(qtbot: QtBot, tmp_path: Path) -> None:
     assert restore_window(other, store, "geo-max") is True
     assert other.isMaximized()
 
+
+def test_run_does_not_lock_or_persist_by_default() -> None:
+    import inspect
+
+    params = inspect.signature(App.run).parameters
+    assert params["single_instance"].default is False
+    assert params["restore_geometry"].default is False
+
+
+def test_quit_writes_geometry_only_when_requested(qtbot: QtBot, tmp_path: Path) -> None:
+    app = App("psi6-no-geo", config_root=tmp_path)
+    window = QWidget()
+    qtbot.addWidget(window)
+    window.resize(320, 240)
+    app._window = window
+    app._restore_geometry = False
+    app._on_quit()
+    assert not (tmp_path / "psi6-no-geo" / "window.json").exists()
+    app._restore_geometry = True
+    app._on_quit()
+    assert (tmp_path / "psi6-no-geo" / "window.json").is_file()
+

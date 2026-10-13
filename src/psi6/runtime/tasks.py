@@ -1,4 +1,9 @@
-"""后台任务：UI 线程只提交，工作在线程池中执行。"""
+"""后台任务：UI 线程只提交，工作在线程池中执行。
+
+``TaskRunner`` 是唯一的执行器：提交、进度、日志、取消、并发槽都在这里。
+``TaskHandle.status`` 是一次任务的状态。``JobOutcome`` 只描述批处理成功后的表格结果，
+不是第二套执行状态。``BatchToolWindow`` 只负责界面，并调用同一个 ``runner.submit``。
+"""
 
 from __future__ import annotations
 
@@ -151,6 +156,18 @@ class _JobRunnable(QRunnable):
             self._signals.cancelled.emit(self._job_id)
         except RuntimeError:
             pass
+
+
+def _invoke(callback: Callable[..., Any], *args: Any) -> None:
+    """调用回到 UI 的回调。控件已销毁时 PySide 会抛 RuntimeError，这里吞掉这一类。"""
+
+    try:
+        callback(*args)
+    except RuntimeError as exc:
+        text = str(exc).lower()
+        if "deleted" in text:
+            return
+        raise
 
 
 def _accepts(fn: Callable[..., Any], name: str) -> bool:
@@ -371,9 +388,9 @@ class TaskRunner(QObject):
                 handle._set_error(payload, traceback_text or "")
         if callback is not None:
             if status is TaskStatus.CANCELLED:
-                callback()
+                _invoke(callback)
             else:
-                callback(payload)
+                _invoke(callback, payload)
         with self._lock:
             self._jobs.pop(job_id, None)
             self._signals.pop(job_id, None)

@@ -18,6 +18,7 @@ from psi6.runtime.single_instance import SingleInstance, instance_key
 from psi6.runtime.tasks import TaskRunner
 from psi6.runtime.window_state import restore_window, save_window
 from psi6.theme.apply import apply_theme
+from psi6.theme.theme import Theme
 from psi6.theme.tokens import Tokens, resolve_tokens
 from psi6.ui.desktop_window import DesktopWindow
 from psi6.ui.toast import ToastHost
@@ -29,8 +30,8 @@ T = TypeVar("T", bound=BaseModel)
 class App:
     """进程内桌面应用入口。业务代码不再手写 ``QApplication(sys.argv)``。
 
-    ``theme`` 取 ``light`` / ``dark`` / ``auto``（跟系统），主题文件
-    （``.json`` / ``.toml`` / ``.yaml``），或含 ``theme.toml`` + ``icons/`` 的目录。
+    ``theme`` 取 ``light`` / ``dark`` / ``auto``，或一个 ``Theme`` 子类 / 实例 / ``Tokens``。
+    默认允许多开。单实例、记住窗口位置都要显式传给 ``run``。
     """
 
     def __init__(
@@ -38,13 +39,13 @@ class App:
         name: str,
         *,
         organization: str = "psi6",
-        theme: str | Tokens | Path | None = None,
+        theme: str | Tokens | Theme | type[Theme] | None = None,
         tokens: Tokens | None = None,
         config_root: Path | None = None,
     ) -> None:
         self.name = name
         self.organization = organization
-        self._theme_spec: str | Tokens | Path | None = theme
+        self._theme_spec: str | Tokens | Theme | type[Theme] | None = theme
         self._tokens_override = tokens
         self._tokens = Tokens.light()
         self.store = ConfigStore(config_root)
@@ -56,6 +57,7 @@ class App:
         self._instance: SingleInstance | None = None
         self.tray: TrayIcon | None = None
         self._window: QWidget | None = None
+        self._restore_geometry = False
         self._ensure()
 
     def _ensure(self) -> QApplication:
@@ -82,7 +84,7 @@ class App:
         return self._qt_app
 
     def _on_quit(self) -> None:
-        if self._window is not None:
+        if self._restore_geometry and self._window is not None:
             save_window(self._window, self.store, self.name)
         if self._runner is not None:
             self._runner.shutdown()
@@ -125,8 +127,8 @@ class App:
             apply_theme(self.qt_app, self._tokens)
             self._refresh_shell()
 
-    def set_theme(self, theme: str | Tokens | Path) -> None:
-        """运行中切换浅色/深色、跟随系统、主题文件/目录或自定义 token。"""
+    def set_theme(self, theme: str | Tokens | Theme | type[Theme]) -> None:
+        """运行中切换 ``light`` / ``dark`` / ``auto``，或一个 ``Theme`` / ``Tokens``。"""
 
         if isinstance(theme, Tokens):
             self._tokens_override = theme
@@ -159,31 +161,62 @@ class App:
         window: QWidget,
         *,
         tray: bool = False,
-        single_instance: bool = True,
-        restore_geometry: bool = True,
+        single_instance: bool = False,
+        restore_geometry: bool = False,
     ) -> int:
         """套用主题、安装异常钩子、绑定状态栏、显示窗口并进入事件循环。
 
-        ``single_instance`` 默认开启：第二份进程会唤醒已有窗口然后退出。
-        ``tray`` 把窗口接到系统托盘；关闭主窗口时隐藏而不是退出。
-        ``restore_geometry`` 默认开启：恢复上次窗口位置与最大化状态。
+        默认允许多个进程同时运行，也不写窗口位置。
+        ``single_instance=True`` 时，第二份进程唤醒已有窗口后退出。
+        ``restore_geometry=True`` 时，启动恢复上次位置与最大化，退出时写回 ``window.json``。
+        ``tray=True`` 且系统有托盘时，关闭主窗口隐藏而不是退出。
+        没有托盘时关闭仍结束进程。关闭窗口不取消任务；退出时才按
+        几何、任务、单实例锁、托盘的顺序收尾。
         """
 
         app = self._ensure()
-        self._window = window
-        if restore_geometry:
-            restore_window(window, self.store, self.name)
+        if not self._open(
+            window,
+            tray=tray,
+            single_instance=single_instance,
+            restore_geometry=restore_geometry,
+        ):
+            return 0
+        window.show()
+        return app.exec()
+
+    def _open(
+        self,
+        window: QWidget,
+        *,
+        tray: bool,
+        single_instance: bool,
+        restore_geometry: bool,
+    ) -> bool:
+        """绑定单实例、几何、托盘和通知。第二实例返回 False，此时不显示窗口。
+
+        系统没有托盘时仍创建 ``TrayIcon``，但它是空操作：不把关闭改成隐藏，
+        也不关掉「最后一个窗口关闭即退出」。
+        """
+
+        app = self._ensure()
+        self._restore_geometry = False
         if single_instance:
             lock = SingleInstance(instance_key(self.organization, self.name), parent=app)
             if not lock.try_acquire():
                 lock.notify_existing()
-                return 0
+                return False
             lock.activated.connect(lambda: raise_window(window))
             self._instance = lock
+        if restore_geometry:
+            restore_window(window, self.store, self.name)
+            self._restore_geometry = True
+        self._window = window
         if tray:
-            app.setQuitOnLastWindowClosed(False)
             icon = window.title_bar.icon_name if isinstance(window, DesktopWindow) else "grid"
             self.tray = TrayIcon(window, tooltip=self.name, icon=icon, parent=app)
+            if self.tray.available:
+                app.setQuitOnLastWindowClosed(False)
         if isinstance(window, QMainWindow):
             self.notifier.bind_status_bar(window.statusBar())
             anchor = window.centralWidget() or window
@@ -191,8 +224,7 @@ class App:
             anchor = window
         self.notifier.bind_toast_host(ToastHost(anchor))
         install_exception_hooks(app, parent=window, notifier=self.notifier)
-        window.show()
-        return app.exec()
+        return True
 
 
 def raise_window(window: QWidget) -> None:
