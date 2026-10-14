@@ -122,6 +122,61 @@ def test_quit_order_is_geometry_runner_lock_tray(qtbot: QtBot, tmp_path: Path, m
     assert order == ["geometry", "runner", "lock", "tray"]
 
 
+def test_file_index_page_separates_close_cancel_and_quit(qtbot: QtBot, tmp_path: Path, monkeypatch) -> None:
+    """关窗口、点取消、应用退出是三件事。页面用文件索引的开始/取消按钮。"""
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QPushButton
+
+    from psi6.examples.file_index import build
+
+    started = threading.Event()
+
+    def block(_params, *, on_progress, on_log, is_cancelled) -> None:  # noqa: ARG001
+        started.set()
+        while not is_cancelled():
+            time.sleep(0.02)
+        raise InterruptedError
+
+    monkeypatch.setattr("psi6.examples.file_index.run_file_index", block)
+    app = App("psi6-index-life", config_root=tmp_path)
+    window = build(app)
+    qtbot.addWidget(window)
+    window.show()
+    app.qt_app.setQuitOnLastWindowClosed(False)
+    start = _labeled(window, QPushButton, "开始")
+    cancel = _labeled(window, QPushButton, "取消")
+
+    qtbot.mouseClick(start, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(started.is_set, timeout=3000)
+    handle = app.runner.active_handles()[-1]
+    window.close()
+    qtbot.wait(80)
+    assert handle.cancel_requested is False
+    assert handle.status is TaskStatus.RUNNING
+
+    window.show()
+    qtbot.mouseClick(cancel, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.CANCELLED, timeout=3000)
+    assert handle.cancel_requested is True
+    assert app.runner.is_busy("index") is False
+    assert window.isVisible()
+
+    started.clear()
+    qtbot.mouseClick(start, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(started.is_set, timeout=3000)
+    again = app.runner.active_handles()[-1]
+    assert again.cancel_requested is False
+    app._on_quit()
+    qtbot.waitUntil(lambda: again.status is TaskStatus.CANCELLED, timeout=3000)
+
+
+def _labeled(window, kind: type, text: str):
+    found = [widget for widget in window.findChildren(kind) if widget.text() == text]
+    assert len(found) == 1
+    return found[0]
+
+
 def test_closing_window_does_not_cancel_task(qtbot: QtBot, tmp_path: Path) -> None:
     app = App("psi6-close-window", config_root=tmp_path)
     window = QWidget()

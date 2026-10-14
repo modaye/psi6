@@ -70,12 +70,12 @@ def test_kit_window_builds(qtbot: QtBot, tmp_path) -> None:
     app = App("psi6-kit-test", config_root=tmp_path)
     window = KitWindow(app)
     qtbot.addWidget(window)
-    window.show_page("chat")
-    assert window.shell.current_id() == "chat"
-    window.show_page("flow")
-    assert window.shell.current_id() == "flow"
-    window.show_page("icons")
-    assert window.shell.current_id() == "icons"
+    window.show_page("buttons")
+    assert window.shell.current_id() == "buttons"
+    window.show_page("states")
+    assert window.shell.current_id() == "states"
+    window.show_page("compose")
+    assert window.shell.current_id() == "compose"
 
 
 def test_kit_widgets_are_parented_before_show(qtbot: QtBot, tmp_path) -> None:

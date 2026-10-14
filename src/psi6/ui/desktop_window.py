@@ -1,4 +1,4 @@
-"""产品壳：无边框主窗口 + 自定义标题栏 + 圆角 + 边缘缩放。"""
+"""主窗口。默认用 Qt 标题栏；``frameless=True`` 才自绘标题栏。"""
 
 from __future__ import annotations
 
@@ -60,9 +60,10 @@ class _EdgeGrip(QWidget):
 
 
 class DesktopWindow(QMainWindow):
-    """内部工具的默认主窗口。业务把内容交给 ``set_body``，不要再画标题栏。
+    """主窗口。默认使用 Qt 自带标题栏和状态栏。
 
-    普通尺寸为圆角（Win11 走 DWM，离屏/其它环境用 mask）。最大化时贴齐屏幕，取消圆角。
+    ``frameless=True`` 才换成自绘 ``TitleBar``、圆角和无边框缩放。
+    业务内容交给 ``set_body``。
     """
 
     def __init__(
@@ -70,10 +71,35 @@ class DesktopWindow(QMainWindow):
         *,
         title: str,
         icon: str = "grid",
+        frameless: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
+        self._frameless = frameless
+        self.setProperty("frameless", frameless)
+        self._icon_name = icon
+        self.title_bar: TitleBar | None = None
+        self.close_to_tray = False
+        self._force_quit = False
+        self._resize_edge: str | None = None
+        self._press_global = QPoint()
+        self._press_geom = QRect()
+        self._body_host = QWidget()
+        self._body_host.setObjectName("psi6DesktopBody")
+        self._body_host.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._body_layout = QVBoxLayout(self._body_host)
+        self._body_layout.setContentsMargins(0, 0, 0, 0)
+        self._body_layout.setSpacing(0)
+        if frameless:
+            self._init_frameless()
+        else:
+            self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+            super().setCentralWidget(self._body_host)
+
+    def _init_frameless(self) -> None:
+        """无边框壳：自绘标题栏、内嵌状态栏、边缘缩放。"""
+
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.Window
@@ -83,13 +109,6 @@ class DesktopWindow(QMainWindow):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.unsetCursor()
-        self.close_to_tray = False
-        self._force_quit = False
-        self._resize_edge: str | None = None
-        self._press_global = QPoint()
-        self._press_geom = QRect()
-        self._grips: dict[str, _EdgeGrip] = {}
-
         chrome = QWidget()
         chrome.setObjectName("psi6DesktopRoot")
         chrome.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -97,13 +116,8 @@ class DesktopWindow(QMainWindow):
         column = QVBoxLayout(chrome)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
-        self.title_bar = TitleBar(self, title=title, icon=icon)
+        self.title_bar = TitleBar(self, title=self.windowTitle(), icon=self._icon_name)
         column.addWidget(self.title_bar)
-        self._body_host = QWidget()
-        self._body_host.setObjectName("psi6DesktopBody")
-        self._body_layout = QVBoxLayout(self._body_host)
-        self._body_layout.setContentsMargins(0, 0, 0, 0)
-        self._body_layout.setSpacing(0)
         column.addWidget(self._body_host, stretch=1)
         self._status = QStatusBar()
         self._status.setObjectName("psi6WindowStatus")
@@ -113,10 +127,24 @@ class DesktopWindow(QMainWindow):
         self._grips = {edge: _EdgeGrip(self, edge) for edge in _CURSORS}
         self._layout_grips()
 
-    def statusBar(self) -> QStatusBar:  # type: ignore[override]
-        """状态栏画在圆角壳内部，不单独伸出一条方带。"""
+    @property
+    def frameless(self) -> bool:
+        """是否使用自绘标题栏。"""
 
-        return self._status
+        return self._frameless
+
+    @property
+    def icon_name(self) -> str:
+        """窗口图标名。托盘和自绘标题栏都读这个。"""
+
+        return self._icon_name
+
+    def statusBar(self) -> QStatusBar:  # type: ignore[override]
+        """无边框时用壳内状态栏，否则用 Qt 自带状态栏。"""
+
+        if getattr(self, "_frameless", False):
+            return self._status
+        return super().statusBar()
 
     def set_body(self, widget: QWidget) -> None:
         """把业务内容放到标题栏下方。"""
@@ -128,7 +156,8 @@ class DesktopWindow(QMainWindow):
                 child.hide()
                 child.deleteLater()
         self._body_layout.addWidget(widget)
-        self._raise_grips()
+        if self._frameless:
+            self._raise_grips()
 
     def setCentralWidget(self, widget: QWidget | None) -> None:  # type: ignore[override]
         if widget is None:
@@ -137,13 +166,16 @@ class DesktopWindow(QMainWindow):
 
     def setWindowTitle(self, title: str) -> None:
         super().setWindowTitle(title)
-        if hasattr(self, "title_bar"):
-            self.title_bar.set_title(title)
+        title_bar = getattr(self, "title_bar", None)
+        if title_bar is not None:
+            title_bar.set_title(title)
 
     def set_icon(self, name: str) -> None:
-        """标题栏图标。与 ``Icon(name)`` 同名，可被主题 ``icons/`` 覆盖。"""
+        """窗口图标名。无边框时同步到自绘标题栏。"""
 
-        self.title_bar.set_icon(name)
+        self._icon_name = name
+        if self.title_bar is not None:
+            self.title_bar.set_icon(name)
 
     def request_quit(self) -> None:
         """真正退出。托盘「退出」必须走这里，不能只 hide。"""
@@ -180,18 +212,27 @@ class DesktopWindow(QMainWindow):
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
+        if not getattr(self, "_frameless", False):
+            return
         self._sync_shape()
         self._layout_grips()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
+        if not getattr(self, "_frameless", False):
+            return
         self._sync_shape()
         self._layout_grips()
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
-        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, "title_bar"):
-            self.title_bar.sync_max_button()
+        title_bar = getattr(self, "title_bar", None)
+        if (
+            getattr(self, "_frameless", False)
+            and title_bar is not None
+            and event.type() == QEvent.Type.WindowStateChange
+        ):
+            title_bar.sync_max_button()
             self._sync_shape()
             self._layout_grips()
 

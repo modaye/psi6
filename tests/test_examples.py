@@ -13,7 +13,7 @@ from psi6.runtime.tasks import TaskRunner, TaskStatus
 
 def test_examples_use_public_imports() -> None:
     root = Path(task_job.__file__).resolve().parent
-    allowed = {"psi6", "psi6.ui.task_panel", "PySide6.QtCore"}
+    allowed = {"psi6", "psi6.ui.buttons", "psi6.ui.status_progress", "PySide6.QtCore", "PySide6.QtWidgets"}
     for name in ("minimal.py", "task_job.py", "custom_theme.py", "task_status.py"):
         tree = ast.parse((root / name).read_text(encoding="utf-8"))
         for node in ast.walk(tree):

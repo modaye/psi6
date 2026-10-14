@@ -1,4 +1,4 @@
-"""后台任务：进度、失败和退出时的取消请求。
+"""后台任务：进度在状态栏，取消是单独的按钮。
 
 ``python -m psi6.examples.task_job --check`` 跑通成功路径后退出。
 取消只是请求。工作函数返回或抛出 ``InterruptedError`` 后，状态才结束。
@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import sys
 
+from PySide6.QtWidgets import QHBoxLayout, QWidget
+
 from psi6 import App, DesktopWindow, TaskHandle
-from psi6.ui.task_panel import TaskPanel
+from psi6.ui.buttons import ghost_button, primary_button
+from psi6.ui.status_progress import StatusProgress
 
 
 def succeed(*, on_progress, is_cancelled) -> str:
@@ -29,30 +32,45 @@ def fail_read() -> None:
 
 
 def build(app: App) -> DesktopWindow:
-    """开始按钮提交 ``succeed``。失败写到任务条，不在界面线程里抛出。"""
+    """开始和取消放在页面上。进度条只出现在状态栏右侧。"""
 
     window = DesktopWindow(title="后台任务")
-    panel = TaskPanel()
+    progress = StatusProgress(window.statusBar())
+    start = primary_button("开始")
+    cancel = ghost_button("取消")
+    cancel.setEnabled(False)
     current: list[TaskHandle] = []
 
-    def start() -> None:
-        panel.set_running(0, 1, "运行中")
+    def set_idle(message: str) -> None:
+        progress.finish(message)
+        start.setEnabled(True)
+        cancel.setEnabled(False)
 
-        def ok(value: object) -> None:
-            panel.set_finished(str(value))
-
-        def bad(message: str) -> None:
-            panel.set_failed(message)
-
-        current[:] = [app.runner.submit(succeed, on_succeeded=ok, on_failed=bad)]
+    def start_job() -> None:
+        start.setEnabled(False)
+        cancel.setEnabled(True)
+        current[:] = [
+            app.runner.submit(
+                succeed,
+                on_progress=progress.set_progress,
+                on_succeeded=lambda value: set_idle(str(value)),
+                on_failed=set_idle,
+                on_cancelled=lambda: set_idle("已取消"),
+            )
+        ]
 
     def request_cancel() -> None:
         if current:
             current[-1].cancel()
 
-    panel.start_requested.connect(start)
-    panel.cancel_requested.connect(request_cancel)
-    window.set_body(panel)
+    start.clicked.connect(start_job)
+    cancel.clicked.connect(request_cancel)
+    body = QWidget()
+    row = QHBoxLayout(body)
+    row.addWidget(start)
+    row.addWidget(cancel)
+    row.addStretch()
+    window.set_body(body)
     return window
 
 
@@ -63,8 +81,10 @@ def main(argv: list[str] | None = None) -> int:
     app = App("psi6-task")
     window = build(app)
     if "--check" in args:
+        progress = StatusProgress(window.statusBar())
         app.runner.submit(
             succeed,
+            on_progress=progress.set_progress,
             on_succeeded=lambda _value: app.qt_app.quit(),
             on_failed=lambda _message: app.qt_app.quit(),
         )

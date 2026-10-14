@@ -146,7 +146,7 @@ class IconButton(QToolButton):
         extent = (
             self._explicit_extent
             if self._explicit_extent is not None
-            else max(_theme_control_height(), icon + 16)
+            else max(28, _theme_control_height(), icon + 16)
         )
         self._icon_size = icon
         self.setFixedSize(extent, extent)

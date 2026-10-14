@@ -31,18 +31,18 @@ def test_empty_state_hint_keeps_readable_width(qtbot: QtBot) -> None:
 def test_icon_button_hot_zone_and_title_bar(qtbot: QtBot) -> None:
     button = IconButton("play", label="播放")
     qtbot.addWidget(button)
-    assert button.width() == 32
-    assert button.height() == 32
+    assert button.width() == 36
+    assert button.height() == 36
     compact = IconButton("win-close", label="关闭", size=16, extent=32)
     qtbot.addWidget(compact)
     assert compact.size().width() == 32
-    window = DesktopWindow(title="布局")
+    window = DesktopWindow(title="布局", frameless=True)
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)
     bar = window.title_bar
     assert bar.height() == 36
-    assert bar._min.height() == 32
+    assert bar._min.height() == 36
     assert bar._close.objectName() == "psi6TitleClose"
 
 
@@ -85,7 +85,7 @@ def test_composer_send_is_primary_and_transport_is_large(qtbot: QtBot) -> None:
     send = composer.findChild(QPushButton, "psi6Primary")
     assert send is not None
     assert send.text() == "发送"
-    assert send.height() == 32
+    assert send.height() == 36
     bar = TransportBar()
     qtbot.addWidget(bar)
     assert bar._play.width() >= 32

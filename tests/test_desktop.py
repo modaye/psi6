@@ -12,6 +12,7 @@ from psi6.runtime.single_instance import SingleInstance, instance_key
 from psi6.ui.chat import MessageList
 from psi6.ui.command_palette import Command, CommandPalette
 from psi6.ui.desktop_window import DesktopWindow
+from psi6.ui.status_progress import StatusProgress
 from psi6.ui.diff_view import DiffView
 from psi6.ui.stepper import Stepper
 from psi6.ui.title_bar import drag_origin_after_restore
@@ -29,8 +30,67 @@ def test_prepare_qt_environment_points_at_real_fonts() -> None:
         assert found.is_dir()
 
 
+def test_desktop_window_uses_native_title_bar_by_default(qtbot: QtBot) -> None:
+    from PySide6.QtCore import Qt
+
+    window = DesktopWindow(title="原生")
+    qtbot.addWidget(window)
+    assert window.frameless is False
+    assert window.title_bar is None
+    assert not window.windowFlags() & Qt.WindowType.FramelessWindowHint
+    window.set_icon("search")
+    assert window.icon_name == "search"
+    window.statusBar().showMessage("就绪")
+    assert window.statusBar().currentMessage() == "就绪"
+
+
+def test_native_window_gaps_use_the_light_canvas(qtbot: QtBot, tmp_path) -> None:
+    """系统标题栏窗口里，控件没盖住的边距仍是浅色画布，不能透成黑色。"""
+
+    from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+    from psi6 import App
+
+    App("psi6-canvas", theme="light", config_root=tmp_path)
+    window = DesktopWindow(title="画布")
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(32, 32, 32, 32)
+    nested = QWidget()
+    nested_layout = QVBoxLayout(nested)
+    nested_layout.setContentsMargins(16, 16, 16, 16)
+    nested_layout.addWidget(QLabel("正文"))
+    layout.addWidget(nested)
+    window.set_body(page)
+    window.resize(360, 240)
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    image = window._body_host.grab().toImage()
+    page_gap = image.pixelColor(4, 4)
+    nested_gap = nested.grab().toImage().pixelColor(4, 4)
+    assert page_gap.red() > 240 and page_gap.green() > 240 and page_gap.blue() > 240
+    assert nested_gap.red() > 240 and nested_gap.green() > 240 and nested_gap.blue() > 240
+
+
+def test_status_progress_lives_on_the_status_bar(qtbot: QtBot) -> None:
+    window = DesktopWindow(title="进度")
+    qtbot.addWidget(window)
+    progress = StatusProgress(window.statusBar())
+    assert progress.isHidden()
+    progress.set_progress(1, 4, "读取")
+    assert progress.parent() is window.statusBar()
+    assert not progress.isHidden()
+    assert progress.value() == 1
+    assert progress.maximum() == 4
+    assert window.statusBar().currentMessage() == "读取"
+    progress.finish("完成")
+    assert progress.isHidden()
+    assert window.statusBar().currentMessage() == "完成"
+
+
 def test_desktop_window_has_title_bar(qtbot: QtBot) -> None:
-    window = DesktopWindow(title="索引工具", icon="folder")
+    window = DesktopWindow(title="索引工具", icon="folder", frameless=True)
     qtbot.addWidget(window)
     assert window.title_bar.parent() is window._chrome
     assert window.title_bar._title.parent() is window.title_bar
@@ -100,7 +160,7 @@ def test_desktop_window_applies_round_mask(qtbot: QtBot) -> None:
     region = round_mask(QRect(0, 0, 100, 80), 12)
     assert region.contains(QPoint(50, 40))
     assert not region.contains(QPoint(0, 0))
-    window = DesktopWindow(title="圆角")
+    window = DesktopWindow(title="圆角", frameless=True)
     qtbot.addWidget(window)
     window.resize(480, 320)
     window.show()

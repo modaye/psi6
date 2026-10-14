@@ -27,8 +27,8 @@ class Brass(Theme):
 
 
 class Compact(Theme):
-    """紧凑密度。尺寸走 ``density``，不另写一套控件。"""
+    """紧凑度量。只改尺寸，配色仍跟 ``base``。"""
 
     name = "compact"
     base = "light"
-    density = "compact"
+    style = "compact"

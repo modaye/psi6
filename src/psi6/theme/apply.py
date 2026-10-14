@@ -6,6 +6,7 @@ from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QStyleFactory
 
 from psi6.theme.chrome import chrome_images
+from psi6.theme.paint import mix_color
 from psi6.theme.tokens import DEFAULT_TOKENS, Tokens
 
 
@@ -82,23 +83,36 @@ def build_stylesheet(tokens: Tokens) -> str:
     br = t.button_radius if t.button_radius > 0 else t.radius
     wr = t.window_radius
     ch = t.control_height
+    ring = max(1, t.focus_ring_width)
+    primary_hover = mix_color(t.color_primary, "#ffffff", 0.24).name(QColor.NameFormat.HexRgb)
+    primary_pressed = mix_color(t.color_primary, "#10151c", 0.32).name(QColor.NameFormat.HexRgb)
     pad_x = t.space_md
-    section_fs = t.font_size + 1
-    page_fs = t.font_size + 3
-    stat_fs = t.font_size + 9
+    title_fs = t.font_size_title
+    title_w = t.font_weight_title
+    body_w = t.font_weight_body
+    danger_hover = mix_color(t.color_danger, "#ffffff", 0.18).name(QColor.NameFormat.HexRgb)
+    danger_pressed = mix_color(t.color_danger, "#10151c", 0.28).name(QColor.NameFormat.HexRgb)
     setting_h = max(ch + t.space_md, 36)
     arrows = _arrow_css(t)
     return f"""
 QWidget {{
     font-family: {t.font_family};
     font-size: {t.font_size}px;
+    font-weight: {body_w};
     color: {t.color_text};
 }}
 QMainWindow {{
+    background: {t.color_bg};
+}}
+QMainWindow[frameless="true"] {{
     background: transparent;
 }}
-QDialog {{
+QWidget#psi6DesktopBody {{
     background: {t.color_bg};
+}}
+QDialog {{
+    background: {t.color_elevated};
+    border: 1px solid {t.color_border};
 }}
 QLabel {{
     background: transparent;
@@ -111,14 +125,14 @@ QLabel#psi6Error {{
     color: {t.color_danger};
     font-size: {t.font_size_sm}px;
 }}
-QLabel#psi6SectionTitle, QLabel#psi6EmptyTitle {{
-    font-weight: 600;
-    font-size: {section_fs}px;
+QLabel#psi6SectionTitle, QLabel#psi6EmptyTitle, QLabel#psi6PageTitle, QLabel#psi6StatValue {{
+    font-weight: {title_w};
+    font-size: {title_fs}px;
     color: {t.color_text};
 }}
-QLabel#psi6StatSuccess {{ color: {t.color_success}; font-weight: 600; }}
-QLabel#psi6StatWarning {{ color: {t.color_warning}; font-weight: 600; }}
-QLabel#psi6StatError {{ color: {t.color_danger}; font-weight: 600; }}
+QLabel#psi6StatSuccess {{ color: {t.color_success}; font-weight: {title_w}; }}
+QLabel#psi6StatWarning {{ color: {t.color_warning}; font-weight: {title_w}; }}
+QLabel#psi6StatError {{ color: {t.color_danger}; font-weight: {title_w}; }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit,
 QDateEdit, QTimeEdit, QDateTimeEdit {{
     border: 1px solid {t.color_border};
@@ -126,21 +140,27 @@ QDateEdit, QTimeEdit, QDateTimeEdit {{
     padding: 0 {pad_x}px;
     background: {t.color_sunken};
     min-height: {ch}px;
-    selection-background-color: {t.color_primary};
-    selection-color: {t.color_on_primary};
+    selection-background-color: {t.color_hover};
+    selection-color: {t.color_text};
+}}
+QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover,
+QPlainTextEdit:hover, QTextEdit:hover, QLineEdit[psi6State="hover"] {{
+    border-color: {t.color_primary};
 }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
 QPlainTextEdit:focus, QTextEdit:focus, QDateEdit:focus, QTimeEdit:focus,
-QDateTimeEdit:focus {{
-    border: 1px solid {t.color_focus};
+QDateTimeEdit:focus, QLineEdit[psi6State="focus"] {{
+    border: {ring}px solid {t.color_focus};
 }}
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled,
 QPlainTextEdit:disabled, QDateEdit:disabled, QTimeEdit:disabled, QDateTimeEdit:disabled {{
     color: {t.color_disabled};
     background: {t.color_bg};
+    border: 1px solid {t.color_border_subtle};
 }}
 QLineEdit[invalid="true"], QWidget#psi6PathPicker[invalid="true"] QLineEdit {{
-    border: 1px solid {t.color_danger};
+    border: {ring}px solid {t.color_danger};
+    background: {t.color_surface};
 }}
 QLineEdit#psi6SearchField {{
     min-width: 180px;
@@ -161,51 +181,76 @@ QPushButton {{
     background: {t.color_surface};
     color: {t.color_text};
 }}
-QPushButton:hover {{
+QPushButton:hover, QPushButton[psi6State="hover"] {{
     background: {t.color_hover};
     border-color: {t.color_primary};
 }}
-QPushButton:pressed {{
+QPushButton:pressed, QPushButton[psi6State="pressed"] {{
     background: {t.color_bg};
+    border-color: {t.color_border};
 }}
-QPushButton:disabled {{
+QPushButton:disabled, QPushButton[psi6State="disabled"] {{
     color: {t.color_disabled};
     background: {t.color_bg};
+    border: 1px solid {t.color_border_subtle};
 }}
-QPushButton:focus {{
-    border: 1px solid {t.color_focus};
+QPushButton:focus, QPushButton[psi6State="focus"] {{
+    border: {ring}px solid {t.color_focus};
 }}
 QPushButton#psi6Primary {{
     background: {t.color_primary};
     color: {t.color_on_primary};
     border: none;
-    font-weight: 600;
+    font-weight: {title_w};
 }}
-QPushButton#psi6Primary:hover {{
-    background: {t.color_focus};
+QPushButton#psi6Primary:hover, QPushButton#psi6Primary[psi6State="hover"] {{
+    background: {primary_hover};
 }}
-QPushButton#psi6Primary:disabled {{
+QPushButton#psi6Primary:pressed, QPushButton#psi6Primary[psi6State="pressed"] {{
+    background: {primary_pressed};
+}}
+QPushButton#psi6Primary:disabled, QPushButton#psi6Primary[psi6State="disabled"] {{
     background: {t.color_border};
     color: {t.color_muted};
+    border: 1px solid {t.color_border_subtle};
+}}
+QPushButton#psi6Primary:focus, QPushButton#psi6Primary[psi6State="focus"] {{
+    border: {ring}px solid {t.color_focus};
 }}
 QPushButton#psi6Danger {{
-    color: {t.color_danger};
-    border-color: {t.color_danger};
+    background: {t.color_danger};
+    color: {t.color_on_primary};
+    border: none;
+    font-weight: {title_w};
 }}
-QPushButton#psi6Danger:hover {{
-    background: {t.color_hover};
+QPushButton#psi6Danger:hover, QPushButton#psi6Danger[psi6State="hover"] {{
+    background: {danger_hover};
+}}
+QPushButton#psi6Danger:pressed, QPushButton#psi6Danger[psi6State="pressed"] {{
+    background: {danger_pressed};
+}}
+QPushButton#psi6Danger:disabled, QPushButton#psi6Danger[psi6State="disabled"] {{
+    background: {t.color_border};
+    color: {t.color_muted};
+    border: 1px solid {t.color_border_subtle};
+}}
+QPushButton#psi6Danger:focus, QPushButton#psi6Danger[psi6State="focus"] {{
+    border: {ring}px solid {t.color_focus};
 }}
 QPushButton#psi6Ghost {{
     background: transparent;
     border: 1px solid {t.color_border};
     color: {t.color_text};
 }}
-QPushButton#psi6Ghost:hover {{
+QPushButton#psi6Ghost:hover, QPushButton#psi6Ghost[psi6State="hover"] {{
     background: {t.color_hover};
     border-color: {t.color_primary};
 }}
-QPushButton#psi6Ghost:pressed {{
+QPushButton#psi6Ghost:pressed, QPushButton#psi6Ghost[psi6State="pressed"] {{
     background: {t.color_bg};
+}}
+QPushButton#psi6Ghost:focus, QPushButton#psi6Ghost[psi6State="focus"] {{
+    border: {ring}px solid {t.color_focus};
 }}
 QPushButton#psi6Link {{
     background: transparent;
@@ -213,14 +258,14 @@ QPushButton#psi6Link {{
     color: {t.color_primary};
     min-height: {max(ch - 8, 20)}px;
     padding: 0 {t.space_sm}px;
-    font-weight: 600;
+    font-weight: {title_w};
 }}
-QPushButton#psi6Link:hover {{
+QPushButton#psi6Link:hover, QPushButton#psi6Link[psi6State="hover"] {{
     background: transparent;
     border: none;
     color: {t.color_focus};
 }}
-QPushButton#psi6Link:pressed {{
+QPushButton#psi6Link:pressed, QPushButton#psi6Link[psi6State="pressed"] {{
     background: transparent;
 }}
 QWidget#psi6DropZone {{
@@ -247,8 +292,8 @@ QWidget#psi6DropZoneIcon {{
 }}
 QLabel#psi6DropZoneTitle {{
     color: {t.color_text};
-    font-size: {t.font_size + 2}px;
-    font-weight: 600;
+    font-size: {title_fs}px;
+    font-weight: {title_w};
 }}
 QLabel#psi6DropZoneHint {{
     color: {t.color_muted};
@@ -271,10 +316,10 @@ QPushButton#psi6Segment:hover {{
     color: {t.color_text};
     border: none;
 }}
-QPushButton#psi6Segment:checked {{
-    background: {t.color_surface};
+QPushButton#psi6Segment:checked, QPushButton#psi6Segment[psi6State="selected"] {{
+    background: {t.color_hover};
     color: {t.color_text};
-    font-weight: 600;
+    font-weight: {title_w};
     border: none;
 }}
 QWidget#psi6CheckList {{
@@ -286,11 +331,11 @@ QWidget#psi6CheckRow {{
     background: transparent;
 }}
 QDialog#psi6ContentDialog {{
-    background: {t.color_bg};
+    background: {t.color_elevated};
 }}
 QLabel#psi6DialogTitle {{
-    font-weight: 650;
-    font-size: {page_fs}px;
+    font-weight: {title_w};
+    font-size: {title_fs}px;
 }}
 QWidget#psi6ImageWell {{
     background: {t.color_surface};
@@ -317,7 +362,7 @@ QTableWidget, QTableView, QTreeView, QListView {{
     border: 1px solid {t.color_border};
     border-radius: {r}px;
     background: {t.color_sunken};
-    gridline-color: {t.color_bg};
+    gridline-color: {t.color_border_subtle};
     selection-background-color: {t.color_hover};
     selection-color: {t.color_text};
     alternate-background-color: {t.color_surface};
@@ -327,8 +372,20 @@ QTableWidget, QTableView {{
     font-family: {t.font_mono};
     font-size: {t.font_size_sm}px;
 }}
+QTableView::item, QTreeView::item, QListView::item {{
+    min-height: {t.row_height}px;
+    padding: 0 {t.space_sm}px;
+}}
+QTableView::item:hover, QTreeView::item:hover, QListView::item:hover {{
+    background: {t.color_elevated};
+}}
+QTableView::item:selected, QTreeView::item:selected, QListView::item:selected {{
+    background: {t.color_hover};
+    color: {t.color_text};
+}}
 QHeaderView::section {{
     background: {t.color_surface};
+    min-height: {t.row_height}px;
     padding: {t.space_sm}px {t.space_md}px;
     border: none;
     border-bottom: 1px solid {t.color_border};
@@ -346,15 +403,21 @@ QCheckBox, QRadioButton {{
     spacing: {t.space_sm}px;
     background: transparent;
 }}
+QCheckBox:hover, QRadioButton:hover {{
+    color: {t.color_text};
+}}
 QCheckBox:disabled, QRadioButton:disabled {{
     color: {t.color_disabled};
+}}
+QCheckBox:focus, QRadioButton:focus {{
+    color: {t.color_text};
 }}
 QGroupBox, QWidget#psi6Section {{
     font-weight: 600;
     border: 1px solid {t.color_border};
     border-radius: {r}px;
     margin-top: 12px;
-    padding: {t.space_md}px;
+    padding: {t.space_lg}px;
     background: {t.color_surface};
 }}
 QGroupBox::title {{
@@ -478,13 +541,21 @@ QTabBar::tab {{
     margin-right: 2px;
     color: {t.color_muted};
 }}
-QTabBar::tab:selected {{
-    background: {t.color_surface};
+QTabBar::tab:selected, QTabBar::tab[psi6State="selected"] {{
+    background: {t.color_hover};
     color: {t.color_text};
-    font-weight: 600;
+    font-weight: {title_w};
 }}
 QTabBar::tab:hover {{
     color: {t.color_text};
+    background: {t.color_hover};
+}}
+QTabBar::tab:focus {{
+    border: {ring}px solid {t.color_focus};
+}}
+QTabBar::tab:disabled {{
+    color: {t.color_disabled};
+    background: {t.color_bg};
 }}
 QMenuBar {{
     background: {t.color_surface};
@@ -590,7 +661,8 @@ QWidget#psi6Sidebar {{
     border-right: 1px solid {t.color_border};
 }}
 QLabel#psi6SidebarTitle {{
-    font-weight: 700;
+    font-weight: {title_w};
+    font-size: {title_fs}px;
     color: {t.color_text};
     padding: 4px 4px 12px 4px;
 }}
@@ -603,14 +675,25 @@ QPushButton#psi6NavItem {{
     background: transparent;
     color: {t.color_sidebar_text};
 }}
-QPushButton#psi6NavItem:hover {{
+QPushButton#psi6NavItem:hover, QPushButton#psi6NavItem[psi6State="hover"] {{
     background: {t.color_hover};
     color: {t.color_text};
 }}
-QPushButton#psi6NavItem:checked {{
-    background: {t.color_surface};
+QPushButton#psi6NavItem:pressed, QPushButton#psi6NavItem[psi6State="pressed"] {{
+    background: {t.color_bg};
     color: {t.color_text};
-    font-weight: 600;
+}}
+QPushButton#psi6NavItem:checked, QPushButton#psi6NavItem[psi6State="selected"] {{
+    background: {t.color_hover};
+    color: {t.color_text};
+    font-weight: {title_w};
+}}
+QPushButton#psi6NavItem:focus, QPushButton#psi6NavItem[psi6State="focus"] {{
+    border: {ring}px solid {t.color_focus};
+}}
+QPushButton#psi6NavItem:disabled {{
+    color: {t.color_disabled};
+    background: transparent;
 }}
 QPushButton#psi6NavItem[compact="true"] {{
     text-align: center;
@@ -629,14 +712,20 @@ QToolButton#psi6IconButton:hover {{
 }}
 QToolButton#psi6IconButton:pressed {{
     background: {t.color_bg};
+    border-color: {t.color_border};
 }}
-QLabel#psi6PageTitle {{
-    font-size: {page_fs}px;
-    font-weight: 650;
+QToolButton#psi6IconButton:focus {{
+    border: {ring}px solid {t.color_focus};
+}}
+QToolButton#psi6IconButton:disabled {{
+    color: {t.color_disabled};
+    background: {t.color_bg};
+    border: 1px solid {t.color_border_subtle};
 }}
 QLabel#psi6PageHint {{
     color: {t.color_muted};
     font-size: {t.font_size_sm}px;
+    font-weight: {body_w};
 }}
 QWidget#psi6StatCard {{
     background: {t.color_surface};
@@ -644,8 +733,8 @@ QWidget#psi6StatCard {{
     border-radius: {r}px;
 }}
 QLabel#psi6StatValue {{
-    font-size: {stat_fs}px;
-    font-weight: 650;
+    font-size: {title_fs}px;
+    font-weight: {title_w};
     font-family: {t.font_mono};
 }}
 QWidget#psi6ToolTile {{
@@ -707,6 +796,10 @@ QWidget#psi6TitleBar[rounded="true"] {{
     border-top-left-radius: {wr}px;
     border-top-right-radius: {wr}px;
 }}
+QStatusBar {{
+    background: {t.color_surface};
+    border-top: 1px solid {t.color_border};
+}}
 QStatusBar#psi6WindowStatus {{
     background: {t.color_surface};
     border-top: 1px solid {t.color_border};
@@ -718,7 +811,7 @@ QStatusBar#psi6WindowStatus[rounded="true"] {{
     border-bottom-right-radius: {wr}px;
 }}
 QLabel#psi6TitleText {{
-    font-weight: 600;
+    font-weight: {title_w};
 }}
 QToolButton#psi6TitleButton {{
     border: 1px solid transparent;
@@ -729,6 +822,10 @@ QToolButton#psi6TitleButton:hover {{
     background: {t.color_hover};
     border-color: {t.color_border};
 }}
+QToolButton#psi6TitleButton:pressed {{
+    background: {t.color_bg};
+    border-color: {t.color_border};
+}}
 QToolButton#psi6TitleClose {{
     border: 1px solid transparent;
     background: transparent;
@@ -737,6 +834,10 @@ QToolButton#psi6TitleClose {{
 QToolButton#psi6TitleClose:hover {{
     background: {t.color_danger};
     border-color: {t.color_danger};
+}}
+QToolButton#psi6TitleClose:pressed {{
+    background: {danger_pressed};
+    border-color: {danger_pressed};
 }}
 QDialog#psi6CommandPalette {{
     background: {t.color_surface};

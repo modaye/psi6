@@ -6,7 +6,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize
 
-from psi6.examples.kit import _DESTINATIONS, _PRESET_COMPACT, KitWindow
+from psi6.examples.kit import _DESTINATIONS, CompactDark, KitWindow, ModernDark
+from psi6.theme.builtin import Compact
 from psi6.runtime.app import App
 from psi6.runtime.qt_env import install_qt_message_filter, prepare_qt_environment
 from psi6.ui.window_shape import grab_rounded
@@ -19,7 +20,7 @@ def capture(
 ) -> list[Path]:
     """把每个场景写成 PNG。返回写出的路径。"""
 
-    selected = themes if themes is not None else ("light", "dark", _PRESET_COMPACT)
+    selected = themes if themes is not None else ("light", ModernDark, Compact, CompactDark)
     target = Path(out_dir)
     target.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -33,7 +34,10 @@ def capture(
         window.shell.sidebar.apply_metrics()
         window.shell.sidebar.refresh_icons()
         qt.processEvents()
-        label = theme if isinstance(theme, str) else theme.stem
+        if isinstance(theme, str):
+            label = theme
+        else:
+            label = str(getattr(theme, "name", "theme"))
         for item in _DESTINATIONS:
             window.show_page(item.page_id)
             qt.processEvents()

@@ -71,14 +71,21 @@ def test_tokens_overlay_rejects_unknown_keys() -> None:
         Tokens.light().overlay({"color_primry": "#fff"})
 
 
-def test_density_and_nested_button_tokens() -> None:
-    compact = Tokens.light().overlay({"density": "compact"})
-    assert compact.density == "compact"
-    assert compact.control_height == 28
+def test_style_metrics_and_nested_button_tokens() -> None:
+    from psi6.theme.tokens import merge_style
+
+    compact = merge_style(Tokens.light(), "compact", {})
+    assert compact.control_height == 30
+    assert compact.control_height_sm == 24
+    assert compact.row_height == 28
     assert compact.icon_size == 14
+    assert compact.space_lg == 10
+    assert compact.font_size_title == 16
     assert compact.sidebar_compact_width == 52
-    sized = Tokens.light().overlay(
-        {"density": "compact", "control_height": 36, "button": {"radius": 10}}
+    sized = merge_style(
+        Tokens.light(),
+        "compact",
+        {"control_height": 36, "button": {"radius": 10}},
     )
     assert sized.control_height == 36
     assert sized.button_radius == 10
@@ -96,8 +103,8 @@ def test_python_theme_overrides_and_rejects_typos() -> None:
     assert brass.color_primary == "#6b542e"
     assert brass.color_bg == "#f3efe6"
     compact = Compact().tokens()
-    assert compact.density == "compact"
-    assert compact.control_height == 28
+    assert compact.control_height == 30
+    assert compact.color_bg == Tokens.light().color_bg
 
     class Midnight(Theme):
         name = "midnight"
@@ -128,6 +135,42 @@ def test_python_theme_overrides_and_rejects_typos() -> None:
             color_primry = "#fff"
 
         Broken().tokens()
+
+    class Desk(Theme):
+        base = "dark"
+        style = "compact"
+        color_primary = "#4d7c5a"
+
+    desk = Desk().tokens()
+    again = Desk().tokens()
+    assert desk == again
+    assert desk.color_bg == Tokens.dark().color_bg
+    assert desk.color_primary == "#4d7c5a"
+    assert desk.control_height == 30
+    assert desk.font_size == 12
+
+    class Plain(Theme):
+        color_primary = "#35597a"
+
+    plain = Plain().tokens()
+    assert plain.control_height == 36
+    assert plain.radius == 6
+    assert plain.font_size_title == 18
+
+    with pytest.raises(TypeError, match="未知 token"):
+
+        class Clash(Theme):
+            style = "modern"
+            density = "compact"
+
+        Clash().tokens()
+
+    with pytest.raises(ValueError, match="style"):
+
+        class Odd(Theme):
+            style = "fluent"
+
+        Odd().tokens()
 
 
 def test_theme_file_paths_are_rejected(tmp_path: Path) -> None:
@@ -197,11 +240,15 @@ def test_apply_theme_publishes_size_tokens(qtbot: QtBot, tmp_path: Path) -> None
     from psi6.theme.runtime import token_int
 
     app = App("psi6-size-tokens", theme="light", config_root=tmp_path)
-    assert app.qt_app.property("psi6ControlHeight") == 32
-    assert token_int("control_height") == 32
-    app.set_theme(Tokens.light().overlay({"density": "compact"}))
-    assert token_int("control_height") == 28
+    assert app.qt_app.property("psi6ControlHeight") == 36
+    assert token_int("control_height") == 36
+    from psi6.theme.tokens import merge_style
+
+    app.set_theme(merge_style(Tokens.light(), "compact", {}))
+    assert token_int("control_height") == 30
     assert token_int("icon_size") == 14
     css = app.qt_app.styleSheet()
-    assert "min-height: 28px" in css
+    assert "min-height: 30px" in css
+    assert "psi6Primary:pressed" in css
+    assert f"border: {app.tokens.focus_ring_width}px solid" in css
     app.set_theme("light")

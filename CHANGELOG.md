@@ -1,5 +1,18 @@
 # 变更
 
+## 0.4.0
+
+- 不再提供 `BatchToolWindow` 和 `TaskPanel`。表单、结果和日志由应用自己组合。
+- `DesktopWindow` 默认使用 Qt 标题栏。`frameless=True` 才使用自绘标题栏。
+- 进度没有指定位置时用 `StatusProgress`，放在状态栏右侧。开始和取消是分开的按钮。
+- 浅色主题的 `color_bg` 改为纯白 `#ffffff`。
+- 默认窗口的客户区和状态栏使用主题底色。只有 `frameless=True` 时主窗口才透明，背景画在圆角壳上。
+- 项目模板包含主题、任务页和 `python app.py --check`。业务写在模板的 `job.py`。
+- 关窗口、点取消、应用退出是三件事。文件索引页按这个区分：关窗口不取消任务，取消按钮只发请求，退出才 `shutdown`。
+- `Theme.style` 取 `modern` 或 `compact`，只决定尺寸。`base` 仍只决定浅色或深色。未写尺寸的主题改为现代度量：控件高 36、圆角 6。`density` 已删除，旧主题改写 `style`。
+- 文字只有标题、正文、辅助三档。表面是窗口、面板、输入、浮层四层。选中用同一套悬停底加正文色。主按钮实心，次按钮描边，危险按钮用危险色。
+- `python -m psi6 kit` 按组件分组，并有状态矩阵和四种组合。文件索引组合页放在同一窗口里。macOS、Linux 和 150% 缩放尚未在本机验证。
+
 ## 0.3.0
 
 - 根包只导出框架入口：`App`、`TaskRunner`、`TaskHandle`、`TaskStatus`、`JobOutcome`、`Theme`、`Tokens`、`contrast_notes`、`DesktopWindow`、`TitleBar`、`TrayIcon`。控件改从 `psi6.ui` 导入，`BatchToolWindow` 改从 `psi6.templates` 导入。对照见 [MIGRATION.md](MIGRATION.md)。

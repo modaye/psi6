@@ -2,7 +2,7 @@
 
 ``TaskRunner`` 是唯一的执行器：提交、进度、日志、取消、并发槽都在这里。
 ``TaskHandle.status`` 是一次任务的状态。``JobOutcome`` 只描述批处理成功后的表格结果，
-不是第二套执行状态。``BatchToolWindow`` 只负责界面，并调用同一个 ``runner.submit``。
+不是第二套执行状态。界面自己组合，不另建调度器。
 """
 
 from __future__ import annotations

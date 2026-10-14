@@ -8,36 +8,60 @@ from dataclasses import fields, replace
 from pathlib import Path
 from typing import Any, ClassVar
 
-from psi6.theme.tokens import Tokens
+from psi6.theme.tokens import Tokens, merge_style
 
 _TOKEN_NAMES = {item.name for item in fields(Tokens)}
-_META = {"name", "base"}
+_META = {"name", "base", "style"}
 
 
 class Theme:
     """可导入的主题。
 
     子类把 token 写成类属性，名字必须是 ``Tokens`` 的字段（IDE 能补全、写错会在加载时抛错）。
-    ``base`` 取 ``light`` 或 ``dark``。``icon_dir`` 为相对路径时，相对**定义该类的模块文件**，
+    ``base`` 取 ``light`` 或 ``dark``，只决定配色。``style`` 取 ``modern`` 或 ``compact``，只决定尺寸。
+    ``icon_dir`` 为相对路径时，相对**定义该类的模块文件**，
     不相对进程当前工作目录。未写 ``icon_dir`` 时，若模块旁边有含 ``*.svg`` 的 ``icons/``，则采用它。
     """
 
     name: ClassVar[str] = "custom"
     base: ClassVar[str] = "light"
+    style: ClassVar[str] = "modern"
 
     def tokens(self) -> Tokens:
-        """展开为可套用的 ``Tokens``。未知字段、错误的 ``base``、缺失的显式图标目录会抛错。"""
+        """展开为可套用的 ``Tokens``。未知字段、错误的 ``base`` / ``style``、缺失的显式图标目录会抛错。"""
 
         base_name = str(self.base).strip().lower()
         if base_name not in {"light", "dark"}:
             raise ValueError(f"主题 base 只能是 light 或 dark，收到 {self.base!r}")
+        style_name = _resolve_style(type(self))
         base = Tokens.dark() if base_name == "dark" else Tokens.light()
         updates = dict(_class_overrides(type(self)))
         icon = _icon_directory(type(self), updates.pop("icon_dir", None))
-        tokens = base.overlay(updates) if updates else base
+        tokens = merge_style(base, style_name, updates)
         if icon is None:
             return tokens
         return replace(tokens, icon_dir=str(icon))
+
+
+def _declared(cls: type[Theme], name: str) -> Any:
+    """子类显式写出的元数据。没写则返回 ``None``，不把基类默认值当成用户选择。"""
+
+    for klass in cls.__mro__:
+        if klass is Theme or klass is object:
+            continue
+        if name in vars(klass):
+            return vars(klass)[name]
+    return None
+
+
+def _resolve_style(cls: type[Theme]) -> str:
+    """读取显式 ``style``。没写时用基类的 modern。"""
+
+    style_raw = _declared(cls, "style")
+    style_name = "modern" if style_raw is None else str(style_raw).strip().lower()
+    if style_name not in {"modern", "compact"}:
+        raise ValueError(f"主题 style 只能是 modern 或 compact，收到 {style_raw!r}")
+    return style_name
 
 
 def _class_overrides(cls: type[Theme]) -> dict[str, Any]:

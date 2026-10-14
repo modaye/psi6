@@ -12,19 +12,46 @@ _NESTED_FIELDS: dict[str, dict[str, str]] = {
     "switch": {"width": "switch_width", "height": "switch_height"},
 }
 
-_COMPACT_DEFAULTS: dict[str, int] = {
+_MODERN_METRICS: dict[str, int] = {
+    "space_sm": 8,
+    "space_md": 12,
+    "space_lg": 16,
+    "radius": 6,
+    "button_radius": 6,
+    "icon_size": 16,
+    "control_height": 36,
+    "control_height_sm": 28,
+    "row_height": 32,
+    "focus_ring_width": 2,
+    "title_bar_height": 36,
+    "switch_width": 44,
+    "switch_height": 24,
+    "sidebar_width": 212,
+    "sidebar_compact_width": 56,
+    "font_size": 13,
+    "font_size_sm": 12,
+    "font_size_title": 18,
+}
+
+_COMPACT_METRICS: dict[str, int] = {
     "space_sm": 4,
     "space_md": 8,
-    "space_lg": 12,
-    "font_size": 12,
-    "font_size_sm": 11,
+    "space_lg": 10,
+    "radius": 4,
+    "button_radius": 4,
     "icon_size": 14,
-    "control_height": 28,
+    "control_height": 30,
+    "control_height_sm": 24,
+    "row_height": 28,
+    "focus_ring_width": 2,
     "title_bar_height": 32,
     "switch_width": 38,
     "switch_height": 20,
     "sidebar_width": 188,
     "sidebar_compact_width": 52,
+    "font_size": 12,
+    "font_size_sm": 11,
+    "font_size_title": 16,
 }
 
 
@@ -32,22 +59,25 @@ _COMPACT_DEFAULTS: dict[str, int] = {
 class Tokens:
     """桌面工具视觉变量。
 
-    面向 Windows 上的批处理/内部工具：冷灰底 + 钢蓝强调。
+    浅色背景是纯白。卡片仍用 ``color_surface``，避免和画布贴成一片。
     用户自定义：子类化 ``psi6.theme.Theme``，或 ``overlay`` 覆盖字段。不要手写整份 QSS，
     也不要再用 JSON / TOML / YAML 描述主题。
     动画只暴露时长：``motion_fast_ms`` / ``motion_ms``（毫秒，``0`` 关闭）。
-    ``density`` 为 ``comfortable`` 或 ``compact``；紧凑会填未写出的尺寸键。
+    ``Theme.style`` 取 ``modern`` 或 ``compact``，只决定尺寸。``base`` 只决定配色。
+    文字只有标题、正文、辅助三档。表面是窗口、面板、输入、浮层四层。
     组件级覆盖可用嵌套：``button.radius``、``title_bar.height``、``switch.width``。
     图标：主题旁 ``icons/search.svg`` 与 ``Icon("search")`` 同名即覆盖。
     """
 
-    color_bg: str = "#eef1f5"
+    color_bg: str = "#ffffff"
     color_surface: str = "#f7f8fb"
+    color_elevated: str = "#ffffff"
     color_sunken: str = "#ffffff"
     color_hover: str = "#e3e8ee"
     color_text: str = "#1f2a36"
     color_muted: str = "#5b6b7c"
     color_border: str = "#c5ced8"
+    color_border_subtle: str = "#e4e9ef"
     color_disabled: str = "#93a0ae"
     color_primary: str = "#35597a"
     color_on_primary: str = "#f4f7fa"
@@ -61,16 +91,19 @@ class Tokens:
     color_sidebar_text: str = "#3d4c5c"
     color_user_bubble: str = "#35597a"
     color_user_on_bubble: str = "#f4f7fa"
-    space_sm: int = 6
+    space_sm: int = 8
     space_md: int = 12
     space_lg: int = 16
-    radius: int = 4
-    button_radius: int = 4
+    radius: int = 6
+    button_radius: int = 6
+    focus_ring_width: int = 2
     window_radius: int = 10
     sidebar_width: int = 212
     sidebar_compact_width: int = 56
     icon_size: int = 16
-    control_height: int = 32
+    control_height: int = 36
+    control_height_sm: int = 28
+    row_height: int = 32
     title_bar_height: int = 36
     switch_width: int = 44
     switch_height: int = 24
@@ -78,10 +111,12 @@ class Tokens:
     font_mono: str = '"Cascadia Mono", "Consolas", monospace'
     font_size: int = 13
     font_size_sm: int = 12
+    font_size_title: int = 18
+    font_weight_body: int = 400
+    font_weight_title: int = 600
     motion_fast_ms: int = 160
     motion_ms: int = 220
     reduced_motion: int = 0
-    density: str = "comfortable"
     icon_dir: str = ""
     icons: tuple[tuple[str, str], ...] = ()
 
@@ -98,11 +133,13 @@ class Tokens:
         return cls(
             color_bg="#141a22",
             color_surface="#1c2430",
+            color_elevated="#243044",
             color_sunken="#10151c",
             color_hover="#2a3442",
             color_text="#e6edf3",
             color_muted="#8b98a6",
             color_border="#3a4656",
+            color_border_subtle="#2c3644",
             color_disabled="#6d7a88",
             color_primary="#7fa0bd",
             color_on_primary="#10151c",
@@ -131,12 +168,7 @@ class Tokens:
             if key not in allowed:
                 continue
             current = getattr(self, key)
-            if key == "density":
-                text = str(value).strip().lower()
-                if text not in {"comfortable", "compact"}:
-                    raise ValueError(f"density 只能是 comfortable 或 compact，收到 {value!r}")
-                kwargs[key] = text
-            elif key == "icons":
+            if key == "icons":
                 kwargs[key] = _as_icon_pairs(value)
             elif isinstance(current, int):
                 kwargs[key] = int(value)
@@ -146,17 +178,26 @@ class Tokens:
                 kwargs[key] = str(value)
         if "radius" in kwargs and "button_radius" not in kwargs:
             kwargs["button_radius"] = kwargs["radius"]
-        density = str(kwargs.get("density", self.density))
-        if density == "compact":
-            for key, value in _COMPACT_DEFAULTS.items():
-                kwargs.setdefault(key, value)
-            kwargs["density"] = "compact"
         reduced = int(kwargs.get("reduced_motion", self.reduced_motion) or 0)
         if reduced:
             kwargs.setdefault("motion_fast_ms", 0)
             kwargs.setdefault("motion_ms", 0)
             kwargs["reduced_motion"] = 1
         return replace(self, **kwargs) if kwargs else self
+
+
+def merge_style(base: Tokens, style: str, updates: Mapping[str, Any]) -> Tokens:
+    """把 ``modern`` / ``compact`` 度量套到配色上，再让 ``updates`` 覆盖。"""
+
+    name = str(style).strip().lower()
+    if name not in {"modern", "compact"}:
+        raise ValueError(f"主题 style 只能是 modern 或 compact，收到 {style!r}")
+    preset = dict(_COMPACT_METRICS if name == "compact" else _MODERN_METRICS)
+    data = dict(updates)
+    if "radius" in data and "button_radius" not in data:
+        preset.pop("button_radius", None)
+    return base.overlay({**preset, **data})
+
 
 DEFAULT_TOKENS = Tokens.light()
 

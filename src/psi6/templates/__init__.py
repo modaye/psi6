@@ -1,5 +1,1 @@
-"""组合窗口。不是 Excel/PDF 行业模板。"""
-
-from psi6.templates.batch_tool import BatchToolWindow
-
-__all__ = ["BatchToolWindow"]
+"""不再提供整页批处理窗。表单、表格和日志由应用自己组合。"""

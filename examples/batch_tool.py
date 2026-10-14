@@ -1,4 +1,4 @@
-"""仓库根目录启动参考工具：``python examples/batch_tool.py``。"""
+"""仓库根目录启动文件索引示例：``python examples/batch_tool.py``。"""
 
 from psi6.examples.file_index import main
 

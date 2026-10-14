@@ -1,11 +1,14 @@
-"""把任务状态画在界面上。``python -m psi6.examples.task_status --check``。"""
+"""把任务状态留在状态栏。``python -m psi6.examples.task_status --check``。"""
 
 from __future__ import annotations
 
 import sys
 
+from PySide6.QtWidgets import QHBoxLayout, QWidget
+
 from psi6 import App, DesktopWindow, TaskHandle, TaskStatus
-from psi6.ui.task_panel import TaskPanel
+from psi6.ui.buttons import ghost_button, primary_button
+from psi6.ui.status_progress import StatusProgress
 
 
 def work(*, on_progress, is_cancelled) -> str:
@@ -18,28 +21,32 @@ def work(*, on_progress, is_cancelled) -> str:
     return "完成"
 
 
-def build(app: App) -> tuple[DesktopWindow, TaskPanel]:
-    """任务条展示运行、成功和失败。调度仍是 ``app.runner``。"""
+def build(app: App) -> tuple[DesktopWindow, StatusProgress]:
+    """进度条在状态栏。开始和取消不与进度条同一行。"""
 
     window = DesktopWindow(title="任务状态")
-    panel = TaskPanel()
+    progress = StatusProgress(window.statusBar())
+    start = primary_button("开始")
+    cancel = ghost_button("取消")
+    cancel.setEnabled(False)
     current: list[TaskHandle] = []
 
     def show(message: str) -> None:
         handle = current[-1]
-        if handle.status is TaskStatus.FAILED:
-            panel.set_failed(message)
-            return
-        panel.set_finished(f"{handle.status} {message}")
+        progress.finish(f"{handle.status} {message}")
+        start.setEnabled(True)
+        cancel.setEnabled(False)
 
-    def start() -> None:
-        panel.set_running(0, 2, "排队")
+    def start_job() -> None:
+        start.setEnabled(False)
+        cancel.setEnabled(True)
         current[:] = [
             app.runner.submit(
                 work,
-                on_progress=panel.set_running,
+                on_progress=progress.set_progress,
                 on_succeeded=lambda value: show(str(value)),
-                on_failed=lambda message: show(message),
+                on_failed=show,
+                on_cancelled=lambda: show("已取消"),
             )
         ]
 
@@ -47,10 +54,15 @@ def build(app: App) -> tuple[DesktopWindow, TaskPanel]:
         if current:
             current[-1].cancel()
 
-    panel.start_requested.connect(start)
-    panel.cancel_requested.connect(request_cancel)
-    window.set_body(panel)
-    return window, panel
+    start.clicked.connect(start_job)
+    cancel.clicked.connect(request_cancel)
+    body = QWidget()
+    row = QHBoxLayout(body)
+    row.addWidget(start)
+    row.addWidget(cancel)
+    row.addStretch()
+    window.set_body(body)
+    return window, progress
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,16 +70,17 @@ def main(argv: list[str] | None = None) -> int:
 
     args = sys.argv[1:] if argv is None else argv
     app = App("psi6-status")
-    window, panel = build(app)
+    window, progress = build(app)
     if "--check" in args:
+
         def finished(value: object) -> None:
-            panel.set_finished(str(value))
+            progress.finish(str(value))
             if handle.status is not TaskStatus.SUCCEEDED:
                 app.qt_app.exit(2)
                 return
             app.qt_app.quit()
 
-        handle = app.runner.submit(work, on_progress=panel.set_running, on_succeeded=finished)
+        handle = app.runner.submit(work, on_progress=progress.set_progress, on_succeeded=finished)
     return app.run(window)
 
 

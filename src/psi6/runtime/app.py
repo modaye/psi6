@@ -226,7 +226,7 @@ class App:
             self._restore_geometry = True
         self._window = window
         if tray:
-            icon = window.title_bar.icon_name if isinstance(window, DesktopWindow) else "grid"
+            icon = window.icon_name if isinstance(window, DesktopWindow) else "grid"
             self.tray = TrayIcon(window, tooltip=self.name, icon=icon, parent=app)
             if self.tray.available:
                 app.setQuitOnLastWindowClosed(False)

@@ -1,99 +1,82 @@
-"""场景图库：用真实桌面布局核对默认 UI，而不是控件堆砌。"""
+"""组件目录：按组看外观，用状态矩阵核对悬停、按下和焦点。"""
 
 from __future__ import annotations
 
-from typing import Literal
-
-from pydantic import BaseModel, Field
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPlainTextEdit,
-    QStackedWidget,
+    QLineEdit,
+    QPushButton,
+    QRadioButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from psi6.icons.glyphs import icon_names
-from psi6.runtime.app import App
-from psi6.theme.builtin import Brass, Compact
+from psi6 import App, JobOutcome, TaskHandle
+from psi6.jobs.file_index import FILE_INDEX_COLUMNS, FileIndexParams, run_file_index
+from psi6.theme.builtin import Compact
 from psi6.theme.theme import Theme
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
 from psi6.ui.banner import Banner
-from psi6.ui.buttons import ghost_button, primary_button, text_button
-from psi6.ui.chat import Composer, MessageList
-from psi6.ui.check_list import CheckItem, CheckList
-from psi6.ui.chrome import PageHeader, StatCard
+from psi6.ui.buttons import danger_button, ghost_button, primary_button, text_button
+from psi6.ui.chrome import PageHeader
 from psi6.ui.collapsible import Collapsible
-from psi6.ui.command_palette import Command, CommandPalette
 from psi6.ui.data_table import DataTable, TableColumn
 from psi6.ui.desktop_window import DesktopWindow
-from psi6.ui.diff_view import DiffView
-from psi6.ui.drop_zone import DropZone
-from psi6.ui.empty_state import EmptyState
-from psi6.ui.flow_layout import FlowLayout
-from psi6.ui.form import field_switch
-from psi6.ui.icon import Icon
-from psi6.ui.image_well import ImageWell
-from psi6.ui.kbd import KbdHint
+from psi6.ui.file_input import FileInput, FolderInput
+from psi6.ui.form import FormError, pydantic_form
+from psi6.ui.icon import IconButton
 from psi6.ui.log_panel import LogPanel
-from psi6.ui.playlist import Playlist
 from psi6.ui.search_field import SearchField
 from psi6.ui.segmented import SegmentedControl
-from psi6.ui.settings_page import pydantic_settings
 from psi6.ui.status_badge import StatusBadge
-from psi6.ui.stepper import Stepper
-from psi6.ui.tag import TagRow
-from psi6.ui.task_panel import TaskPanel
-from psi6.ui.transport import TransportBar
-from psi6.ui.workbench import ChangeList, ToolTile
+from psi6.ui.status_progress import StatusProgress
+from psi6.ui.switch import Switch
 
 _DESTINATIONS = (
-    NavDestination("tool", "批处理", "wrench"),
-    NavDestination("video", "影视", "film"),
-    NavDestination("music", "音乐", "music"),
-    NavDestination("chat", "Agent", "bot"),
-    NavDestination("dash", "仪表盘", "layout-dashboard"),
-    NavDestination("git", "Git", "git-branch"),
-    NavDestination("monitor", "监控", "activity"),
-    NavDestination("box", "工具箱", "grid"),
-    NavDestination("flow", "向导", "list"),
-    NavDestination("icons", "图标", "search"),
+    NavDestination("buttons", "按钮", "check"),
+    NavDestination("inputs", "输入", "file"),
+    NavDestination("choice", "选择", "sliders"),
+    NavDestination("nav", "导航", "sidebar"),
+    NavDestination("data", "数据", "table"),
+    NavDestination("feedback", "反馈", "info"),
+    NavDestination("window", "窗口", "monitor"),
+    NavDestination("states", "状态", "circle-dot"),
     NavDestination("theme", "主题", "sun"),
+    NavDestination("compose", "组合", "grid"),
 )
 
+_STATE_ROWS = ("默认", "悬停", "按下", "焦点", "禁用", "错误", "选中")
+_NA = "不适用"
 
-class KitPrefs(BaseModel):
-    """图库主题页的示范设置模型，不是业务模板。"""
 
-    recursive: bool = field_switch(
-        default=True,
-        description="包含子目录",
-        hint="设置项用 Switch；批处理过滤仍可用勾选框。",
-        group="扫描",
-    )
-    notify: bool = field_switch(
-        default=False,
-        description="完成后弹出通知",
-        hint="成功走 Notifier.success，不要刷 info Toast。",
-        group="扫描",
-    )
-    appearance: Literal["light", "dark", "auto"] = Field(
-        default="light",
-        description="外观",
-        json_schema_extra={"group": "外观", "hint": "auto 跟随操作系统浅色/深色。"},
-    )
+class ModernDark(Theme):
+    """现代度量配深色。只供图库切换。"""
+
+    name = "modern-dark"
+    base = "dark"
+    style = "modern"
+
+
+class CompactDark(Theme):
+    """紧凑度量配深色。只供图库切换。"""
+
+    name = "compact-dark"
+    base = "dark"
+    style = "compact"
 
 
 class KitWindow(DesktopWindow):
-    """侧栏切换场景，用来看默认主题和图标是否站得住。"""
+    """七组控件、状态矩阵、四种组合，以及一页文件索引组合。"""
 
     def __init__(self, app: App, parent: QWidget | None = None) -> None:
-        super().__init__(title="psi6 场景图库", icon="grid", parent=parent)
+        super().__init__(title="psi6 组件目录", icon="grid", frameless=True, parent=parent)
         self._app = app
         self.resize(1180, 760)
         self.shell = AppShell(_DESTINATIONS, title="psi6")
@@ -106,34 +89,21 @@ class KitWindow(DesktopWindow):
         holder_layout.addWidget(self.shell, stretch=1)
         self.set_body(holder)
         pages = {
-            "tool": self._page_tool,
-            "video": self._page_video,
-            "music": self._page_music,
-            "chat": self._page_chat,
-            "dash": self._page_dash,
-            "git": self._page_git,
-            "monitor": self._page_monitor,
-            "box": self._page_box,
-            "flow": self._page_flow,
-            "icons": self._page_icons,
+            "buttons": self._page_buttons,
+            "inputs": self._page_inputs,
+            "choice": self._page_choice,
+            "nav": self._page_nav,
+            "data": self._page_data,
+            "feedback": self._page_feedback,
+            "window": self._page_window,
+            "states": self._page_states,
             "theme": self._page_theme,
+            "compose": self._page_compose,
         }
         for page_id, factory in pages.items():
             self.shell.add_page(page_id, factory())
-        self.shell.show_page("tool")
-        self.statusBar().showMessage("默认钢蓝工作台 · SVG 描边图标 · Python 主题")
-        self._palette = CommandPalette(self)
-        self._palette.set_commands(
-            [
-                Command("tool", "打开批处理", "文件索引骨架", "wrench", "Ctrl+1"),
-                Command("chat", "打开 Agent", "气泡会话", "bot", "Ctrl+4"),
-                Command("theme-dark", "切换深色", "token 主题", "moon", "Ctrl+D"),
-                Command("theme-light", "切换浅色", "token 主题", "sun"),
-            ]
-        )
-        self._palette.activated.connect(self._run_command)
-        shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
-        shortcut.activated.connect(lambda: self._palette.popup(self))
+        self.shell.show_page("buttons")
+        self.statusBar().showMessage("组件目录 · 四种组合在「主题」页切换")
 
     def show_page(self, page_id: str) -> None:
         self.shell.show_page(page_id)
@@ -147,375 +117,378 @@ class KitWindow(DesktopWindow):
         layout.addWidget(body, stretch=1)
         return page
 
-    def _run_command(self, command_id: str) -> None:
-        if command_id == "theme-dark":
-            self._apply_theme("dark")
-            return
-        if command_id == "theme-light":
-            self._apply_theme("light")
-            return
-        self.show_page(command_id)
-        self._banner.set_notice(f"命令：{command_id}", tone="info")
-
-    def _page_tool(self) -> QWidget:
-        header = PageHeader("文件批处理", hint="选目录、跑任务、结果进表。少用参数在高级选项。", icon="wrench")
+    def _page_buttons(self) -> QWidget:
+        header = PageHeader("按钮", hint="主按钮实心，次按钮描边，危险按钮用危险色，文字按钮无边框。", icon="check")
+        bar = ActionBar()
+        bar.add_left(primary_button("开始"))
+        bar.add_left(ghost_button("取消"))
+        bar.add_left(danger_button("删除"))
+        bar.add_left(text_button("详情"))
+        bar.add_right(IconButton("search", label="搜索"))
         body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        extra = Collapsible("高级选项")
-        extra.add_widget(QCheckBox("包含子目录"))
-        extra.add_widget(QCheckBox("忽略隐藏文件"))
-        col.addWidget(extra)
-        col.addWidget(TaskPanel())
-        tags = TagRow()
-        col.addWidget(tags)
-        tags.set_labels((".md", ".csv", ".log"))
-        table = DataTable(
-            [
-                TableColumn("name", "名称", stretch=True),
-                TableColumn("kind", "类型"),
-                TableColumn("size", "大小"),
-            ],
-        )
-        table.set_rows(
-            [
-                {"name": "readme.md", "kind": ".md", "size": "2 KB"},
-                {"name": "export.csv", "kind": ".csv", "size": "41 KB"},
-            ]
-        )
-        col.addWidget(table, stretch=1)
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(bar)
+        column.addWidget(SegmentedControl(("列表", "网格")))
+        column.addStretch()
         return self._wrap(header, body)
 
-    def _page_video(self) -> QWidget:
-        header = PageHeader("影片工作台", hint="解码器仍是业务；这里只提供时间轴、空播区和音量。", icon="film")
+    def _page_inputs(self) -> QWidget:
+        header = PageHeader("输入", hint="输入落在下沉表面。焦点用焦点环，错误旁边要有文字。", icon="file")
+        name = QLineEdit()
+        name.setPlaceholderText("名称")
         body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        stage = EmptyState("没有打开影片", "从资料库选一部，或拖进此区域。", icon="film", tone="info")
-        col.addWidget(stage, stretch=1)
-        bar = TransportBar()
-        bar.set_time("12:04", "1:42:18")
-        bar.set_progress(220)
-        bar.set_volume(70)
-        col.addWidget(bar)
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(name)
+        column.addWidget(SearchField())
+        column.addWidget(FileInput())
+        column.addWidget(FolderInput())
+        column.addStretch()
         return self._wrap(header, body)
 
-    def _page_music(self) -> QWidget:
-        header = PageHeader("播放队列", hint="曲目表 + 传输条。音量、静音与进度都是桌面习惯位。", icon="music")
+    def _page_choice(self) -> QWidget:
+        header = PageHeader("选择", hint="勾选、单选、组合框和开关共用同一套选中色。", icon="sliders")
+        combo = QComboBox()
+        combo.addItems(("浅色", "深色"))
         body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        search = SearchField(placeholder="筛选曲目…")
-        col.addWidget(search)
-        playlist = Playlist()
-        playlist.set_tracks(
-            [
-                {"title": "Night Shift", "artist": "Harbor", "time": "3:41"},
-                {"title": "Steel Wire", "artist": "Kite", "time": "4:02"},
-                {"title": "Low Tide", "artist": "Harbor", "time": "2:58"},
-            ]
-        )
-        playlist.set_current(0)
-        search.query_changed.connect(playlist.set_filter)
-        col.addWidget(playlist, stretch=1)
-        transport = TransportBar()
-        transport.set_playing(True)
-        transport.set_time("1:12", "3:41")
-        transport.set_progress(340)
-        playlist.track_activated.connect(lambda _: transport.set_playing(True))
-        col.addWidget(transport)
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(QCheckBox("包含子目录"))
+        column.addWidget(QRadioButton("现代"))
+        compact = QRadioButton("紧凑")
+        compact.setChecked(True)
+        column.addWidget(compact)
+        column.addWidget(combo)
+        column.addWidget(Switch(checked=True))
+        column.addStretch()
         return self._wrap(header, body)
 
-    def _page_chat(self) -> QWidget:
-        header = PageHeader("Agent 会话", hint="气泡 + 输入条。流式协议不在 UI 层。", icon="bot")
+    def _page_nav(self) -> QWidget:
+        header = PageHeader("导航", hint="侧栏就是本窗口。这里看标签页、折叠区和一条导航项。", icon="sidebar")
+        tabs = QTabWidget()
+        tabs.addTab(QLabel("概览"), "概览")
+        tabs.addTab(QLabel("明细"), "明细")
+        disabled = QLabel("停用")
+        tabs.addTab(disabled, "停用")
+        tabs.setTabEnabled(2, False)
+        section = Collapsible("高级选项", expanded=True)
+        section.add_widget(QLabel("折叠区只收不常用字段。"))
+        sample = QPushButton("当前页")
+        sample.setObjectName("psi6NavItem")
+        sample.setCheckable(True)
+        sample.setChecked(True)
         body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        messages = MessageList()
-        messages.add_message("把这个目录做成批处理窗口，结果进表。", role="user", timestamp="18:02")
-        messages.add_message(
-            "用 BatchToolWindow，参数走 Pydantic，任务放进 TaskRunner。",
-            role="assistant",
-            timestamp="18:02",
-        )
-        streaming = messages.add_message("正在整理变更摘要", role="assistant", timestamp="18:03", streaming=True)
-        streaming.set_text("工作区有 3 个文件改动，下一步可以看 DiffView。")
-        streaming.set_streaming(False)
-        col.addWidget(messages, stretch=1)
-        composer = Composer()
-        composer.sent.connect(lambda text: messages.add_message(text, role="user", timestamp="现在"))
-        col.addWidget(composer)
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(tabs)
+        column.addWidget(section)
+        column.addWidget(sample)
+        column.addStretch()
         return self._wrap(header, body)
 
-    def _page_dash(self) -> QWidget:
-        header = PageHeader("运行概览", hint="数字卡片看趋势，表看明细。", icon="layout-dashboard")
-        body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        cards = QHBoxLayout()
-        cards.addWidget(
-            StatCard(
-                "今日任务",
-                "128",
-                hint="比昨日 +12%",
-                icon="activity",
-                sparkline=(90, 96, 88, 110, 128),
+    def _page_data(self) -> QWidget:
+        header = PageHeader("数据", hint="表格选中用悬停底加正文色。空表用空态，不另画一块占位。", icon="table")
+        filled = DataTable(
+            (
+                TableColumn("name", "名称"),
+                TableColumn("state", "状态"),
             )
         )
-        cards.addWidget(StatCard("失败", "3", hint="需人工", icon="warning", sparkline=(1, 4, 2, 5, 3)))
-        cards.addWidget(StatCard("队列", "17", hint="最长 4 分钟", icon="clock", sparkline=(8, 12, 20, 15, 17)))
-        cards.addStretch()
-        col.addLayout(cards)
-        table = DataTable(["job", "status", "duration"])
-        table.set_columns(
-            [
-                TableColumn("job", "任务", stretch=True),
-                TableColumn("status", "状态"),
-                TableColumn("duration", "耗时"),
-            ]
-        )
-        table.set_rows(
-            [
-                {"job": "index-docs", "status": "成功", "duration": "12s"},
-                {"job": "mail-sync", "status": "运行中", "duration": "—"},
-            ]
-        )
-        col.addWidget(table, stretch=1)
-        return self._wrap(header, body)
-
-    def _page_git(self) -> QWidget:
-        header = PageHeader("工作区变更", hint="状态色 + 路径 + unified diff。不做完整 Git porcelain。", icon="git-branch")
-        body = QWidget()
-        split = QHBoxLayout(body)
-        split.setContentsMargins(0, 0, 0, 0)
-        changes = ChangeList()
-        changes.set_changes(
-            [
-                ("src/psi6/ui/icon.py", "modified"),
-                ("src/psi6/icons/svg/search.svg", "added"),
-                ("src/psi6/examples/batch_demo.py", "deleted"),
-            ]
-        )
-        diff = DiffView()
-        sample = [
-            (" ", "def token_color(widget, *, tone=\"neutral\"):"),
-            ("-", "    return widget.palette().color()"),
-            ("+", "    app = QApplication.instance()"),
-            ("+", "    return app.property(key)"),
-        ]
-        diff.set_lines(sample)
-        changes.current_changed.connect(lambda path: diff.set_lines(sample))
-        changes.set_current("src/psi6/ui/icon.py")
-        split.addWidget(changes, stretch=2)
-        split.addWidget(diff, stretch=3)
-        return self._wrap(header, body)
-
-    def _page_monitor(self) -> QWidget:
-        header = PageHeader("服务监控", hint="健康数字 + 操作日志。探针逻辑仍走 TaskRunner。", icon="activity")
-        body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        row = QHBoxLayout()
-        row.addWidget(
-            StatCard("API", "200", hint="us-east · 41ms", icon="monitor", sparkline=(210, 198, 205, 200))
-        )
-        row.addWidget(StatCard("Worker", "4/4", hint="全部在线", icon="terminal"))
-        row.addWidget(StatusBadge("健康", tone="success"))
+        filled.set_rows(({"name": "索引", "state": "就绪"}, {"name": "导出", "state": "等待"}))
+        filled.select_row(0)
+        empty = DataTable((TableColumn("name", "名称"),))
+        badges = QWidget()
+        row = QHBoxLayout(badges)
+        row.setContentsMargins(0, 0, 0, 0)
+        for tone, text in (("success", "成功"), ("warning", "警告"), ("error", "失败"), ("info", "信息")):
+            row.addWidget(StatusBadge(text, tone=tone))
         row.addStretch()
-        col.addLayout(row)
-        log = LogPanel()
-        from psi6.runtime.logs import LogLevel, LogRecord
-
-        log.append(LogRecord(LogLevel.SUCCESS, "health-check ok", extra={"ms": 41}))
-        log.append(LogRecord(LogLevel.WARNING, "retry queue depth 17"))
-        col.addWidget(log, stretch=1)
+        body = QWidget()
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(filled, stretch=1)
+        column.addWidget(badges)
+        column.addWidget(empty, stretch=1)
         return self._wrap(header, body)
 
-    def _page_box(self) -> QWidget:
-        header = PageHeader("内部工具箱", hint="一格一个入口，点进去才是 BatchToolWindow。", icon="grid")
-        body = QWidget()
-        flow = FlowLayout(body, spacing=12)
-        tiles = (
-            ("文件索引", "扫目录，结果进表", "folder"),
-            ("邮件预览", "生成草稿不发送", "message"),
-            ("表格合并", "多份 CSV 对齐", "table"),
-            ("日志切片", "按级别导出", "list"),
-        )
-        for title, hint, icon in tiles:
-            tile = ToolTile(title, hint, icon=icon)
-            tile.clicked.connect(lambda t=title: self._app.notifier.success(f"打开 {t}"))
-            flow.addWidget(tile)
-        return self._wrap(header, body)
-
-    def _page_flow(self) -> QWidget:
-        header = PageHeader(
-            "导入向导",
-            hint="Stepper 管步骤；CommandPalette 管跳转。Ctrl+K 打开命令面板。",
-            icon="list",
-        )
-        header.add_trailing(KbdHint("Ctrl+K"))
-        body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
-        stepper = Stepper(("选择目录", "预览", "写入"))
-        col.addWidget(stepper)
-        stepper.set_current(1)
-        drop = DropZone(
-            "把文件拖到这里",
-            "也可以点击选择。过滤用构造参数，不要写死扩展名。",
-            icon="file",
-            filters="Python (*.py *.pyw);;All Files (*)",
-            browse_on_click=False,
-        )
-        drop.files_dropped.connect(lambda paths: self._banner.set_notice(f"收到 {len(paths)} 个路径", tone="success"))
-        drop.clicked.connect(drop.browse)
-        col.addWidget(drop)
-        segments = SegmentedControl(("自己测试", "发给同事", "正式发布"))
-        col.addWidget(segments)
-        notice = Banner()
-        col.addWidget(notice)
-        notice.set_notice(
-            "未找到可用的 Python。可以查看说明或先排除这项。",
-            tone="warning",
-            actions=[
-                ("查看说明", lambda: self._banner.set_notice("短句请走 Notifier；长文用 ContentDialog。", tone="info")),
-                ("继续", lambda: notice.clear()),
-            ],
-        )
-        extra = Collapsible("专业选项")
-        checks = CheckList()
-        checks.set_items(
-            [
-                CheckItem("entry", "main.py", "入口脚本"),
-                CheckItem("secret", "secrets.env", "密钥，默认排除", checked=False),
-            ]
-        )
-        extra.add_widget(checks)
-        extra.add_widget(ImageWell())
-        col.addWidget(extra)
-        stack = QStackedWidget()
-        stack.addWidget(
-            EmptyState("选择目录", "用 FolderInput，不要在业务里弹 QFileDialog。", icon="folder", tone="info")
-        )
-        preview = EmptyState("预览 128 个文件", "确认扩展名过滤后再写入。", icon="table", tone="info")
-        stack.addWidget(preview)
-        stack.addWidget(EmptyState("准备写入", "任务必须进 TaskRunner。", icon="play", tone="success"))
-        stack.setCurrentIndex(1)
-        stepper.current_changed.connect(stack.setCurrentIndex)
-        col.addWidget(stack, stretch=1)
+    def _page_feedback(self) -> QWidget:
+        header = PageHeader("反馈", hint="横幅留在页内。短句走通知。进度在状态栏。", icon="info")
+        banner = Banner()
+        banner.set_notice("目录为空时把原因写在横幅里。", tone="warning")
+        toast = primary_button("弹出成功通知")
+        toast.clicked.connect(lambda: self._app.notifier.success("已完成"))
+        self._feedback_progress = StatusProgress(self.statusBar())
+        show_progress = ghost_button("状态栏进度")
+        show_progress.clicked.connect(lambda: self._feedback_progress.set_progress(1, 3, "读取"))
+        self._busy_table = DataTable((TableColumn("name", "名称"),))
+        busy = ghost_button("表格忙碌")
+        busy.clicked.connect(lambda: self._busy_table.set_busy(True, "正在索引"))
+        idle = ghost_button("结束忙碌")
+        idle.clicked.connect(lambda: self._busy_table.set_busy(False))
         actions = ActionBar()
-        back = ghost_button("上一步")
-        nxt = primary_button("下一步")
-        back.clicked.connect(stepper.back)
-        nxt.clicked.connect(stepper.next)
-        paste = text_button("粘贴代码")
-        paste.clicked.connect(lambda: self._banner.set_notice("粘贴草稿放进 ContentDialog 的 QPlainTextEdit。", tone="info"))
-        open_cmd = primary_button("命令面板")
-        open_cmd.clicked.connect(lambda: self._palette.popup(self))
-        actions.add_left(back)
-        actions.add_left(nxt)
-        actions.add_left(paste)
-        actions.add_right(open_cmd)
-        col.addWidget(actions)
+        actions.add_left(toast)
+        actions.add_left(show_progress)
+        actions.add_left(busy)
+        actions.add_left(idle)
+        body = QWidget()
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(banner)
+        column.addWidget(actions)
+        column.addWidget(self._busy_table, stretch=1)
         return self._wrap(header, body)
 
-    def _page_icons(self) -> QWidget:
-        header = PageHeader("图标表", hint="全部为自绘 24×24 描边 SVG，随 token 着色。", icon="search")
+    def _page_window(self) -> QWidget:
+        header = PageHeader(
+            "窗口",
+            hint="本目录窗口使用自绘标题栏。业务窗口默认用系统标题栏，frameless=True 才自绘。",
+            icon="monitor",
+        )
+        note = QLabel(
+            "关闭窗口不取消任务。没有托盘时关闭仍退出。进度没有指定位置时放在状态栏右侧。"
+        )
+        note.setObjectName("psi6Hint")
+        note.setWordWrap(True)
         body = QWidget()
-        grid = QGridLayout(body)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(10)
-        names = icon_names()
-        columns = 6
-        for index, name in enumerate(names):
-            cell = QWidget()
-            cell_layout = QHBoxLayout(cell)
-            cell_layout.setContentsMargins(6, 4, 6, 4)
-            cell_layout.addWidget(Icon(name, size=18))
-            label = QLabel(name)
-            label.setObjectName("psi6Hint")
-            cell_layout.addWidget(label)
-            grid.addWidget(cell, index // columns, index % columns)
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(note)
+        column.addStretch()
         return self._wrap(header, body)
+
+    def _page_states(self) -> QWidget:
+        """同屏矩阵。悬停、按下和焦点用 psi6State 画出来，不要求移动鼠标。"""
+
+        header = PageHeader(
+            "状态",
+            hint="行是状态，列是控件。不适用的格子写明。禁用按钮不能点击，错误旁边有文字。",
+            icon="circle-dot",
+        )
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(8)
+        columns = ("主按钮", "次按钮", "输入", "侧栏")
+        for column, title in enumerate(columns, start=1):
+            label = QLabel(title)
+            label.setObjectName("psi6SectionTitle")
+            grid.addWidget(label, 0, column)
+        for row, state in enumerate(_STATE_ROWS, start=1):
+            name = QLabel(state)
+            name.setObjectName("psi6Hint")
+            grid.addWidget(name, row, 0)
+            grid.addWidget(self._state_cell("primary", state), row, 1)
+            grid.addWidget(self._state_cell("ghost", state), row, 2)
+            grid.addWidget(self._state_cell("field", state), row, 3)
+            grid.addWidget(self._state_cell("nav", state), row, 4)
+        body = QWidget()
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.addLayout(grid)
+        column.addStretch()
+        return self._wrap(header, body)
+
+    def _state_cell(self, kind: str, state: str) -> QWidget:
+        if kind == "primary":
+            return self._button_state(primary_button, state, pressed=True, error=False, selected=False)
+        if kind == "ghost":
+            return self._button_state(ghost_button, state, pressed=True, error=False, selected=False)
+        if kind == "field":
+            return self._field_state(state)
+        return self._nav_state(state)
+
+    def _button_state(
+        self,
+        factory,
+        state: str,
+        *,
+        pressed: bool,
+        error: bool,
+        selected: bool,
+    ) -> QWidget:
+        if state == "按下" and not pressed:
+            return self._na()
+        if state == "错误" and not error:
+            return self._na()
+        if state == "选中" and not selected:
+            return self._na()
+        button = factory(state)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if state == "禁用":
+            button.setEnabled(False)
+            return button
+        token = {"悬停": "hover", "按下": "pressed", "焦点": "focus"}.get(state)
+        if token:
+            self._force_visual(button, token)
+        return button
+
+    def _field_state(self, state: str) -> QWidget:
+        if state in {"按下", "选中"}:
+            return self._na()
+        if state == "错误":
+            box = QWidget()
+            row = QHBoxLayout(box)
+            row.setContentsMargins(0, 0, 0, 0)
+            edit = QLineEdit("缺少目录")
+            edit.setProperty("invalid", True)
+            edit.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            self._force_visual(edit, "")
+            error = QLabel("请选择一个存在的目录")
+            error.setObjectName("psi6Error")
+            row.addWidget(edit, stretch=1)
+            row.addWidget(error)
+            return box
+        edit = QLineEdit()
+        edit.setPlaceholderText(state)
+        edit.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if state == "禁用":
+            edit.setEnabled(False)
+            return edit
+        token = {"悬停": "hover", "焦点": "focus"}.get(state, "")
+        if token:
+            self._force_visual(edit, token)
+        return edit
+
+    def _nav_state(self, state: str) -> QWidget:
+        if state == "错误":
+            return self._na()
+        button = QPushButton(state)
+        button.setObjectName("psi6NavItem")
+        button.setCheckable(True)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if state == "禁用":
+            button.setEnabled(False)
+            return button
+        if state == "选中":
+            button.setChecked(True)
+            return button
+        token = {"悬停": "hover", "按下": "pressed", "焦点": "focus"}.get(state)
+        if token:
+            self._force_visual(button, token)
+        return button
+
+    def _force_visual(self, widget: QWidget, state: str) -> None:
+        if state:
+            widget.setProperty("psi6State", state)
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+
+    def _na(self) -> QLabel:
+        label = QLabel(_NA)
+        label.setObjectName("psi6Hint")
+        return label
 
     def _page_theme(self) -> QWidget:
-        header = PageHeader(
-            "主题与扩展",
-            hint="light / dark / auto，或一个 Theme 子类。开关和自定义控件都读同一套 token。",
-            icon="settings",
-        )
-        body = QWidget()
-        col = QVBoxLayout(body)
-        col.setContentsMargins(0, 0, 0, 0)
+        header = PageHeader("主题", hint="切换后上面各页一起变。尺寸只由 style 决定。", icon="sun")
         actions = ActionBar()
-        light = primary_button("浅色")
-        dark = primary_button("深色")
-        brass = primary_button("黄铜预设")
-        compact = primary_button("紧凑")
-        follow = primary_button("跟随系统")
-        light.clicked.connect(lambda: self._apply_theme("light"))
-        dark.clicked.connect(lambda: self._apply_theme("dark"))
-        brass.clicked.connect(lambda: self._apply_theme(Brass))
-        compact.clicked.connect(lambda: self._apply_theme(Compact))
-        follow.clicked.connect(lambda: self._apply_theme("auto"))
-        actions.add_left(light)
-        actions.add_left(dark)
-        actions.add_left(brass)
-        actions.add_left(compact)
-        actions.add_left(follow)
-        col.addWidget(actions)
-        prefs = pydantic_settings(KitPrefs())
-        prefs.applied.connect(self._on_kit_prefs)
-        col.addWidget(prefs)
-        help_text = QLabel(
-            "自定义主题：子类化 Theme，类属性必须是 Tokens 字段名。\n"
-            "图标放在主题模块旁边的 icons/，文件名与 Icon 相同。自绘读 token_color / token_int / token_ms。"
+        pairs = (
+            ("现代浅色", "light"),
+            ("现代深色", ModernDark),
+            ("紧凑浅色", Compact),
+            ("紧凑深色", CompactDark),
         )
-        help_text.setObjectName("psi6Hint")
-        help_text.setWordWrap(True)
-        col.addWidget(help_text)
-        sample = QPlainTextEdit()
-        sample.setReadOnly(True)
-        sample.setPlainText(
-            "from psi6.theme import Theme\n"
-            "\n"
-            "class Midnight(Theme):\n"
-            "    name = \"midnight\"\n"
-            "    base = \"dark\"\n"
-            "    color_primary = \"#7a9e7e\"\n"
-            "    control_height = 30\n"
-            "    button_radius = 8\n"
-            "\n"
-            "# 与 midnight.py 同目录的 icons/search.svg 会替换 Icon(\"search\")\n"
-        )
-        col.addWidget(sample, stretch=1)
+        for label, theme in pairs:
+            button = primary_button(label)
+            button.clicked.connect(lambda _checked=False, chosen=theme: self._apply_theme(chosen))
+            actions.add_left(button)
+        note = QLabel("macOS、Linux 和 150% 缩放尚未在本机验证。")
+        note.setObjectName("psi6Hint")
+        note.setWordWrap(True)
+        body = QWidget()
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(12)
+        column.addWidget(actions)
+        column.addWidget(note)
+        column.addStretch()
         return self._wrap(header, body)
 
-    def _on_kit_prefs(self, model: object) -> None:
-        if not isinstance(model, KitPrefs):
-            return
-        self._app.save_config(model)
-        self._apply_theme(model.appearance)
-        if model.notify:
-            self._banner.set_notice("通知已打开", tone="success")
+    def _page_compose(self) -> QWidget:
+        """文件索引那一套放进本窗口，用来看组合后是否仍然一致。"""
+
+        header = PageHeader(
+            "组合",
+            hint="表单、开始、取消、空表、忙碌、日志和状态栏进度在同一个窗口里。",
+            icon="grid",
+        )
+        form = pydantic_form(self._app.load_config(FileIndexParams))
+        start = primary_button("开始")
+        cancel = ghost_button("取消")
+        cancel.setEnabled(False)
+        table = DataTable(FILE_INDEX_COLUMNS)
+        log = LogPanel()
+        progress = StatusProgress(self.statusBar())
+        current: list[TaskHandle] = []
+
+        def set_idle(message: str) -> None:
+            table.set_busy(False)
+            progress.finish(message)
+            start.setEnabled(True)
+            cancel.setEnabled(False)
+            self.statusBar().showMessage(message)
+
+        def start_job() -> None:
+            try:
+                params = form.get_model()
+            except FormError as exc:
+                self._app.notifier.error(str(exc))
+                return
+            self._app.save_config(params)
+            start.setEnabled(False)
+            cancel.setEnabled(True)
+            table.set_busy(True, "正在索引")
+
+            def ok(outcome: JobOutcome) -> None:
+                table.set_rows(outcome.rows)
+                set_idle(outcome.message)
+
+            current[:] = [
+                self._app.runner.submit(
+                    run_file_index,
+                    params,
+                    on_progress=progress.set_progress,
+                    on_log=log.append,
+                    on_succeeded=ok,
+                    on_failed=lambda message: (self._app.notifier.error(message), set_idle(message)),
+                    on_cancelled=lambda: set_idle("已取消"),
+                    exclusive="index",
+                )
+            ]
+
+        start.clicked.connect(start_job)
+        cancel.clicked.connect(lambda: current and current[-1].cancel())
+        actions = ActionBar()
+        actions.add_left(start)
+        actions.add_left(cancel)
+        body = QWidget()
+        column = QVBoxLayout(body)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(10)
+        column.addWidget(form)
+        column.addWidget(actions)
+        column.addWidget(table, stretch=1)
+        column.addWidget(log, stretch=1)
+        return self._wrap(header, body)
 
     def _apply_theme(self, theme: str | Theme | type[Theme]) -> None:
         self._app.set_theme(theme)
         self.shell.sidebar.apply_metrics()
         self.shell.sidebar.refresh_icons()
         self.update()
-        if isinstance(theme, str):
-            name = theme
-        elif isinstance(theme, type):
-            name = theme.name
-        else:
-            name = theme.name
+        name = theme if isinstance(theme, str) else theme.name
         self._banner.set_notice(f"已应用主题：{name}", tone="success")
-        self.statusBar().showMessage(f"主题 {name} · primary {self._app.tokens.color_primary}")
+        self.statusBar().showMessage(f"主题 {name}")
 
 
 def main() -> None:
-    """打开场景图库。"""
+    """打开组件目录。"""
 
     app = App("psi6-kit", theme="light")
     raise SystemExit(app.run(KitWindow(app), tray=True, restore_geometry=True))

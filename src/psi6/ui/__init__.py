@@ -43,10 +43,10 @@ from psi6.ui.setting_row import SettingRow
 from psi6.ui.settings_page import SettingsPage, pydantic_settings
 from psi6.ui.sparkline import Sparkline
 from psi6.ui.status_badge import StatusBadge
+from psi6.ui.status_progress import StatusProgress
 from psi6.ui.stepper import Stepper
 from psi6.ui.switch import Switch
 from psi6.ui.tag import Tag, TagRow
-from psi6.ui.task_panel import TaskPanel
 from psi6.ui.title_bar import TitleBar
 from psi6.ui.toast import ToastCard, ToastHost
 from psi6.ui.tone import Tone
@@ -100,12 +100,12 @@ __all__ = [
     "Sparkline",
     "StatCard",
     "StatusBadge",
+    "StatusProgress",
     "Stepper",
     "Switch",
     "TableColumn",
     "Tag",
     "TagRow",
-    "TaskPanel",
     "TitleBar",
     "ToastCard",
     "ToastHost",
