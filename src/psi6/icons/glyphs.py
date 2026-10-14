@@ -54,6 +54,7 @@ _BODIES: dict[str, str] = {
     "more": '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
     "file-plus": '<path d="M14 3H7.5A1.5 1.5 0 0 0 6 4.5v15A1.5 1.5 0 0 0 7.5 21h9A1.5 1.5 0 0 0 18 19.5V8z"/><path d="M14 3v5h5M12 12v5M9.5 14.5h5"/>',
     "circle-dot": '<circle cx="12" cy="12" r="8.25"/><circle cx="12" cy="12" r="2.2"/>',
+    "dot": '<circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/>',
     "win-min": '<path d="M5 12h14" stroke-width="2"/>',
     "win-max": '<rect x="6" y="6" width="12" height="12" rx="1"/>',
     "win-restore": '<rect x="8" y="5" width="10" height="10" rx="1"/><path d="M6 9v9h9"/>',

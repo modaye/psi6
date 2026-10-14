@@ -60,6 +60,43 @@ def test_dark_stylesheet_does_not_use_light_canvas() -> None:
     assert Tokens.light().color_bg not in css
 
 
+def test_qss_icons_are_logical_size_svg(tmp_path: Path) -> None:
+    """QSS 里的图标用逻辑尺寸的 SVG：位图在高 DPI 下会被引擎二次缩放，裁切或起毛边。"""
+
+    from psi6.theme.chrome import cache_dir, qss_icon_ref
+
+    ref = qss_icon_ref("check", color="#ffffff", size=16)
+    name = ref.split(":", 1)[1]
+    assert name.endswith(".svg")
+    markup = (cache_dir() / name).read_text(encoding="utf-8")
+    assert 'width="16" height="16"' in markup
+    assert "#ffffff" in markup
+
+
+def test_check_and_radio_indicators_are_fully_drawn() -> None:
+    """QSS 接管 QCheckBox 后，指示器的矩形框、勾选填充和勾选图都要由主题给出。"""
+
+    light = Tokens.light()
+    css = build_stylesheet(light)
+    assert f"border: 1px solid {light.color_border}" in css
+    for selector in (
+        "QCheckBox::indicator",
+        "QCheckBox::indicator:hover",
+        "QCheckBox::indicator:focus",
+        "QCheckBox::indicator:checked",
+        "QCheckBox::indicator:indeterminate",
+        "QCheckBox::indicator:disabled",
+        "QCheckBox::indicator:checked:disabled",
+        "QRadioButton::indicator",
+        "QRadioButton::indicator:checked",
+        "QRadioButton::indicator:checked:disabled",
+    ):
+        assert selector in css
+    checked = css.split("QCheckBox::indicator:checked {", 1)[1].split("}", 1)[0]
+    assert f"background: {light.color_primary}" in checked
+    assert "image: url(psi6icon:" in checked
+
+
 def test_tokens_overlay_rejects_unknown_keys() -> None:
     dark = Tokens.dark().overlay({"color_primary": "#7a9e7e", "radius": 8, "motion_fast_ms": 80})
     assert dark.color_primary == "#7a9e7e"

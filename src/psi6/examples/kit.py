@@ -19,7 +19,15 @@ from PySide6.QtWidgets import (
 
 from psi6 import App, JobOutcome, TaskHandle
 from psi6.jobs.file_index import FILE_INDEX_COLUMNS, FileIndexParams, run_file_index
-from psi6.theme.builtin import Compact
+from psi6.theme.builtin import (
+    Brass,
+    Compact,
+    CompactDark,
+    ModernDark,
+    Mono,
+    Obsidian,
+    Pine,
+)
 from psi6.theme.theme import Theme
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
@@ -54,22 +62,6 @@ _DESTINATIONS = (
 
 _STATE_ROWS = ("默认", "悬停", "按下", "焦点", "禁用", "错误", "选中")
 _NA = "不适用"
-
-
-class ModernDark(Theme):
-    """现代度量配深色。只供图库切换。"""
-
-    name = "modern-dark"
-    base = "dark"
-    style = "modern"
-
-
-class CompactDark(Theme):
-    """紧凑度量配深色。只供图库切换。"""
-
-    name = "compact-dark"
-    base = "dark"
-    style = "compact"
 
 
 class KitWindow(DesktopWindow):
@@ -387,25 +379,32 @@ class KitWindow(DesktopWindow):
 
     def _page_theme(self) -> QWidget:
         header = PageHeader("主题", hint="切换后上面各页一起变。尺寸只由 style 决定。", icon="sun")
-        actions = ActionBar()
-        pairs = (
+        presets = (
             ("现代浅色", "light"),
             ("现代深色", ModernDark),
             ("紧凑浅色", Compact),
             ("紧凑深色", CompactDark),
         )
-        for label, theme in pairs:
-            button = primary_button(label)
-            button.clicked.connect(lambda _checked=False, chosen=theme: self._apply_theme(chosen))
-            actions.add_left(button)
-        note = QLabel("macOS、Linux 和 150% 缩放尚未在本机验证。")
-        note.setObjectName("psi6Hint")
-        note.setWordWrap(True)
+        extra = (
+            ("黑白 Mono", Mono),
+            ("深黑 Obsidian", Obsidian),
+            ("墨绿 Pine", Pine),
+            ("黄铜 Brass", Brass),
+        )
         body = QWidget()
         column = QVBoxLayout(body)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(12)
-        column.addWidget(actions)
+        for row_themes in (presets, extra):
+            actions = ActionBar()
+            for label, theme in row_themes:
+                button = primary_button(label) if row_themes is presets else ghost_button(label)
+                button.clicked.connect(lambda _checked=False, chosen=theme: self._apply_theme(chosen))
+                actions.add_left(button)
+            column.addWidget(actions)
+        note = QLabel("macOS、Linux 和 150% 缩放尚未在本机验证。")
+        note.setObjectName("psi6Hint")
+        note.setWordWrap(True)
         column.addWidget(note)
         column.addStretch()
         return self._wrap(header, body)

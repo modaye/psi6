@@ -72,7 +72,7 @@ python -m psi6.examples.custom_theme --check
 python -m psi6.examples.task_status --check
 ```
 
-组件预览：`python -m psi6 kit`，按组件分组，可切换四种组合。Agent 约定：[`skills/psi6-desktop/SKILL.md`](skills/psi6-desktop/SKILL.md)。新项目复制 [`skills/psi6-desktop/template/`](skills/psi6-desktop/template/)，在该目录执行 `python app.py --check`。关窗口、点取消、应用退出是三件事。
+组件预览：`python -m psi6 kit`，按组件分组，可切换四种组合，另附 Mono、Obsidian、Pine 内置主题。Agent 约定：[`skills/psi6-desktop/SKILL.md`](skills/psi6-desktop/SKILL.md)。新项目复制 [`skills/psi6-desktop/template/`](skills/psi6-desktop/template/)，在该目录执行 `python app.py --check`。关窗口、点取消、应用退出是三件事。
 
 ## 开发
 

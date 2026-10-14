@@ -70,27 +70,27 @@ class Tokens:
     """
 
     color_bg: str = "#ffffff"
-    color_surface: str = "#f7f8fb"
+    color_surface: str = "#f6f8fa"
     color_elevated: str = "#ffffff"
-    color_sunken: str = "#ffffff"
-    color_hover: str = "#e3e8ee"
-    color_text: str = "#1f2a36"
-    color_muted: str = "#5b6b7c"
-    color_border: str = "#c5ced8"
-    color_border_subtle: str = "#e4e9ef"
-    color_disabled: str = "#93a0ae"
-    color_primary: str = "#35597a"
-    color_on_primary: str = "#f4f7fa"
-    color_danger: str = "#b42318"
-    color_success: str = "#1f6b45"
-    color_warning: str = "#9a4d0a"
-    color_info: str = "#2b5f86"
-    color_focus: str = "#35597a"
-    color_overlay: str = "rgba(238, 241, 245, 210)"
-    color_sidebar: str = "#e6eaef"
-    color_sidebar_text: str = "#3d4c5c"
-    color_user_bubble: str = "#35597a"
-    color_user_on_bubble: str = "#f4f7fa"
+    color_sunken: str = "#f3f5f8"
+    color_hover: str = "#e9eef4"
+    color_text: str = "#1c2431"
+    color_muted: str = "#5a6675"
+    color_border: str = "#d3dae3"
+    color_border_subtle: str = "#e6eaf0"
+    color_disabled: str = "#9ba5b2"
+    color_primary: str = "#2b5cd7"
+    color_on_primary: str = "#f6f9ff"
+    color_danger: str = "#d0392e"
+    color_success: str = "#1e7a4c"
+    color_warning: str = "#9a5f08"
+    color_info: str = "#0e7490"
+    color_focus: str = "#2b5cd7"
+    color_overlay: str = "rgba(233, 238, 244, 215)"
+    color_sidebar: str = "#f1f3f6"
+    color_sidebar_text: str = "#42505f"
+    color_user_bubble: str = "#2b5cd7"
+    color_user_on_bubble: str = "#f6f9ff"
     space_sm: int = 8
     space_md: int = 12
     space_lg: int = 16
@@ -107,7 +107,7 @@ class Tokens:
     title_bar_height: int = 36
     switch_width: int = 44
     switch_height: int = 24
-    font_family: str = '"Segoe UI", "Microsoft YaHei UI", sans-serif'
+    font_family: str = '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif'
     font_mono: str = '"Cascadia Mono", "Consolas", monospace'
     font_size: int = 13
     font_size_sm: int = 12
@@ -128,31 +128,31 @@ class Tokens:
 
     @classmethod
     def dark(cls) -> Tokens:
-        """深色工作台：石板底 + 钢蓝，避免霓虹强调色。"""
+        """深色工作台：深石板底 + 透亮蓝主色，避免霓虹强调色。"""
 
         return cls(
-            color_bg="#141a22",
-            color_surface="#1c2430",
-            color_elevated="#243044",
-            color_sunken="#10151c",
-            color_hover="#2a3442",
-            color_text="#e6edf3",
-            color_muted="#8b98a6",
-            color_border="#3a4656",
-            color_border_subtle="#2c3644",
-            color_disabled="#6d7a88",
-            color_primary="#7fa0bd",
-            color_on_primary="#10151c",
-            color_danger="#e07070",
-            color_success="#6fbf93",
-            color_warning="#d4a054",
-            color_info="#7aa7c9",
-            color_focus="#9bb6cd",
-            color_overlay="rgba(20, 26, 34, 220)",
-            color_sidebar="#10151c",
-            color_sidebar_text="#b4c0cc",
-            color_user_bubble="#3d5a73",
-            color_user_on_bubble="#f4f7fa",
+            color_bg="#0f141c",
+            color_surface="#161c26",
+            color_elevated="#1d2531",
+            color_sunken="#0a0e14",
+            color_hover="#222b3a",
+            color_text="#e4e9f2",
+            color_muted="#8b97a8",
+            color_border="#2b3546",
+            color_border_subtle="#202836",
+            color_disabled="#5c6775",
+            color_primary="#6e9ff2",
+            color_on_primary="#0b1220",
+            color_danger="#e26d66",
+            color_success="#55b785",
+            color_warning="#d9a24f",
+            color_info="#67b0d8",
+            color_focus="#86b3f5",
+            color_overlay="rgba(15, 20, 28, 220)",
+            color_sidebar="#0b0f16",
+            color_sidebar_text="#a4b0c0",
+            color_user_bubble="#2c4a7c",
+            color_user_on_bubble="#eaf1fc",
         )
 
     def overlay(self, data: Mapping[str, Any]) -> Tokens:

@@ -75,6 +75,65 @@ QAbstractSpinBox::down-arrow:disabled {{
 """
 
 
+def _indicator_css(tokens: Tokens) -> str:
+    """勾选框与单选框的指示器：一旦控件沾了 QSS，指示器必须全部自己画。"""
+
+    t = tokens
+    images = chrome_images(t)
+    box = max(14, t.icon_size)
+    check_radius = max(2, t.radius - 2)
+    ring = max(1, t.focus_ring_width)
+    return f"""
+QCheckBox::indicator, QRadioButton::indicator {{
+    width: {box}px;
+    height: {box}px;
+    border: 1px solid {t.color_border};
+    background: {t.color_sunken};
+}}
+QCheckBox::indicator {{
+    border-radius: {check_radius}px;
+}}
+QRadioButton::indicator {{
+    border-radius: {box // 2}px;
+}}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
+    border-color: {t.color_primary};
+}}
+QCheckBox::indicator:focus, QRadioButton::indicator:focus {{
+    border: {ring}px solid {t.color_focus};
+}}
+QCheckBox::indicator:checked {{
+    background: {t.color_primary};
+    border-color: {t.color_primary};
+    image: url({images["check_on"]});
+}}
+QCheckBox::indicator:indeterminate {{
+    background: {t.color_primary};
+    border-color: {t.color_primary};
+    image: url({images["minus_on"]});
+}}
+QRadioButton::indicator:checked {{
+    background: {t.color_primary};
+    border-color: {t.color_primary};
+    image: url({images["dot_on"]});
+}}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
+    background: {t.color_bg};
+    border-color: {t.color_border_subtle};
+}}
+QCheckBox::indicator:checked:disabled, QCheckBox::indicator:indeterminate:disabled {{
+    background: {t.color_border};
+    border-color: {t.color_border_subtle};
+    image: url({images["check_muted"]});
+}}
+QRadioButton::indicator:checked:disabled {{
+    background: {t.color_border};
+    border-color: {t.color_border_subtle};
+    image: url({images["dot_muted"]});
+}}
+"""
+
+
 def build_stylesheet(tokens: Tokens) -> str:
     """由 token 生成全局 QSS。覆盖内部工具会碰到的原生控件。"""
 
@@ -94,6 +153,7 @@ def build_stylesheet(tokens: Tokens) -> str:
     danger_pressed = mix_color(t.color_danger, "#10151c", 0.28).name(QColor.NameFormat.HexRgb)
     setting_h = max(ch + t.space_md, 36)
     arrows = _arrow_css(t)
+    indicators = _indicator_css(t)
     return f"""
 QWidget {{
     font-family: {t.font_family};
@@ -166,6 +226,7 @@ QLineEdit#psi6SearchField {{
     min-width: 180px;
 }}
 {arrows}
+{indicators}
 QComboBox QAbstractItemView {{
     background: {t.color_surface};
     border: 1px solid {t.color_border};
