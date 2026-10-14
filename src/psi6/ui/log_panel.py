@@ -41,9 +41,10 @@ class LogPanel(QWidget):
 
     COLUMNS = ("序号", "级别", "消息", "详情")
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, max_entries: int = 2000) -> None:
         super().__init__(parent)
         self._entries: list[LogRecord] = []
+        self._max_entries = max(1, int(max_entries))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         toolbar = QHBoxLayout()
@@ -77,7 +78,14 @@ class LogPanel(QWidget):
         layout.addWidget(self._table)
 
     def append(self, record: LogRecord) -> None:
+        """追加一条。超过 ``max_entries`` 时丢掉最旧的记录。"""
+
         self._entries.append(record)
+        dropped = len(self._entries) - self._max_entries
+        if dropped > 0:
+            del self._entries[:dropped]
+            self._rebuild()
+            return
         if self._match(record):
             self._append_row(len(self._entries), record)
 

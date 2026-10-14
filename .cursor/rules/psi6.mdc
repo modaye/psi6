@@ -5,7 +5,7 @@ alwaysApply: true
 
 在本仓库或基于 psi6 写桌面工具时，遵循 `skills/psi6-desktop/SKILL.md`。
 
-- 核心：`App`、`TaskRunner`、`BatchToolWindow`、主题 token、`DesktopWindow` / `TitleBar` / `TrayIcon`。
+- 核心从 `psi6` 导入：`App`、`TaskRunner`、`Theme`、`DesktopWindow` / `TitleBar` / `TrayIcon`。控件从 `psi6.ui` 导入，`BatchToolWindow` 从 `psi6.templates` 导入。
 - 表单 `pydantic_form` / `pydantic_settings`；路径 `FileInput` / `FolderInput`；结果 `DataTable`；过程 `LogPanel`；短句 `Notifier`。
 - 任务进行中用 `DataTable.set_busy` 与 `TaskPanel`；同槽 `exclusive=` / `runner.is_busy`。成功/失败用 `Notifier`（会弹 Toast）。`info` 只进状态栏。
 - 主题用 `App(..., theme="light"|"dark"|"auto"|MyTheme)`。`MyTheme` 子类化 `psi6.theme.Theme`，类属性必须是 `Tokens` 字段。图标放主题模块旁边的 `icons/*.svg`。禁止在 UI 线程做 IO；禁止业务里直接 `QFileDialog` / 手写 `QThread` / 散落 QSS。

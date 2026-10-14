@@ -1,0 +1,9 @@
+[project]
+name = "desk-app"
+version = "0.1.0"
+description = "A psi6 desktop app."
+requires-python = ">=3.13"
+dependencies = ["psi6>=0.3"]
+
+[tool.pytest.ini_options]
+qt_api = "pyside6"

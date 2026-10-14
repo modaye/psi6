@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 from typing import TypeVar
 
@@ -58,9 +59,12 @@ class App:
         self.tray: TrayIcon | None = None
         self._window: QWidget | None = None
         self._restore_geometry = False
+        self._executing = False
         self._ensure()
 
     def _ensure(self) -> QApplication:
+        if threading.current_thread() is not threading.main_thread():
+            raise RuntimeError("App 只能在主线程创建，并在主线程调用 run")
         if self._qt_app is not None:
             return self._qt_app
         prepare_qt_environment()
@@ -172,8 +176,13 @@ class App:
         ``tray=True`` 且系统有托盘时，关闭主窗口隐藏而不是退出。
         没有托盘时关闭仍结束进程。关闭窗口不取消任务；退出时才按
         几何、任务、单实例锁、托盘的顺序收尾。
+
+        必须在主线程调用。事件循环未退出时不能再次 ``run``。
+        已有 ``QApplication`` 时复用，不新建第二个。
         """
 
+        if self._executing:
+            raise RuntimeError("App.run 不能在事件循环里再次调用")
         app = self._ensure()
         if not self._open(
             window,
@@ -182,8 +191,12 @@ class App:
             restore_geometry=restore_geometry,
         ):
             return 0
-        window.show()
-        return app.exec()
+        self._executing = True
+        try:
+            window.show()
+            return app.exec()
+        finally:
+            self._executing = False
 
     def _open(
         self,

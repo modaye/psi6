@@ -8,9 +8,9 @@ description: >-
   desktop forms.
 ---
 
-# psi6 桌面基建
+# psi6 桌面框架
 
-用 `psi6` 的 **运行时、批处理、主题、窗壳** 拼桌面程序，不要从 PySide6 重写基建。
+用 `psi6` 的 **运行时、任务、主题、窗壳** 拼桌面程序，不要从 PySide6 重写基建。框架入口只从 `psi6` 导入。控件从 `psi6.ui` 的模块导入，例如 `from psi6.ui.data_table import DataTable`。批处理窗是 `from psi6.templates import BatchToolWindow`。
 **本仓库不提供 Excel/PDF 等业务模板，也不为某个产品堆叠首页主键。** 行业逻辑写在应用仓库；这里只提供可复用的运行时与通用壳。改外观优先构造参数，不够再子类覆盖钩子，不要改 `_` 私有实现。
 
 ## 核心（先做这些）
@@ -30,7 +30,7 @@ description: >-
 def run_job(params, *, on_progress, on_log, is_cancelled) -> JobOutcome: ...
 ```
 
-取消时 `raise InterruptedError`。返回 `JobOutcome(rows=..., message=...)` 只表示要填进表的结果。执行状态看 `TaskHandle.status`。同一槽同时只跑一份：`runner.submit(..., exclusive="batch")`。`runner.is_busy("scan")` 查的是这个槽。进度默认 50ms 节流。任务条用 `TaskPanel`。合同见 `psi6.jobs.file_index`，那不是要复制的行业模板。
+`handle.cancel()` 只把 `handle.cancel_requested` 设为真，不会杀掉线程。工作函数看到 `is_cancelled()` 后 `raise InterruptedError`，返回之后 `TaskHandle.status` 才变成 `cancelled`。忽略取消并正常返回时，若请求已经发出，结束状态仍是 `cancelled`。`runner.shutdown()` 超时得到 `False` 表示线程还在跑。返回 `JobOutcome(rows=..., message=...)` 只表示要填进表的结果。同一槽同时只跑一份：`runner.submit(..., exclusive="batch")`。`runner.is_busy("scan")` 查的是这个槽。进度默认 50ms 节流。任务条用 `from psi6.ui.task_panel import TaskPanel`。`LogPanel` 默认最多 2000 条。合同见 `psi6.jobs.file_index`，那不是要复制的行业模板。
 3. **主题**：颜色、尺寸、时长只用 token。自绘 `create_painter` / `rounded_rect_path` / `mix_color`，读 `token_color` / `token_int` / `token_ms`。不要 emoji、不要页面私有 QSS。动画只调时长 token；`reduced_motion: 1` 或时长 `0` 关闭。按下缩小：`install_press_scale`。对比度用 `contrast_notes(tokens)`，它只返回说明，不阻止 `Theme` 加载。结构错误（未知字段、错误的 `base`、显式图标目录不存在）才抛错。高 DPI 使用 `PassThrough`，几何是逻辑像素，图标按 `devicePixelRatio` 栅格化。
 4. **窗壳通用件**：`TitleBar`（拖动、双击最大化、从最大化拖出还原）、`DesktopWindow.set_icon`、`TrayIcon.refresh`（换主题重绘）、`SingleInstance`（仅在 `single_instance=True` 时使用）。多页用 `AppShell` + `NavDestination`（`set_sidebar_compact`，宽度走 `token_ms`）。
 
@@ -39,6 +39,20 @@ def run_job(params, *, on_progress, on_log, is_cancelled) -> JobOutcome: ...
 批处理窗：`BatchToolWindow(title=..., params=..., job=..., app=..., icon=..., exclusive=...)`。改结果展示覆盖 `present_outcome` / `tag_values`。
 
 对照窗口：`python -m psi6 kit`。截图验收：`python -m psi6 shot`。
+
+## 验证
+
+在仓库里：
+
+```powershell
+uv run pytest
+uv run python -m psi6.examples.minimal --check
+uv run python -m psi6.examples.task_job --check
+uv run python -m psi6.examples.custom_theme --check
+uv run python -m psi6.examples.task_status --check
+```
+
+`--check` 返回 0 表示示例能启动并退出。新项目复制 `skills/psi6-desktop/template/`。模板不是 psi6 的安装依赖，里面的 `pyproject.toml` 要等 0.3 发布后才适合单独 `uv sync`。在本仓库用已装好的环境，于模板目录执行 `python app.py --check`。迁移见仓库根目录 `MIGRATION.md`。
 
 ## 页面控件（按需，不要当成产品主线）
 

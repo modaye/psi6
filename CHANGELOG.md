@@ -1,5 +1,13 @@
 # 变更
 
+## 0.3.0
+
+- 根包只导出框架入口：`App`、`TaskRunner`、`TaskHandle`、`TaskStatus`、`JobOutcome`、`Theme`、`Tokens`、`contrast_notes`、`DesktopWindow`、`TitleBar`、`TrayIcon`。控件改从 `psi6.ui` 导入，`BatchToolWindow` 改从 `psi6.templates` 导入。对照见 [MIGRATION.md](MIGRATION.md)。
+- `cancel()` 只发出取消请求，`TaskHandle.cancel_requested` 立即为真。`status` 等工作函数结束后才变成 `cancelled`。`shutdown` 超时返回 `False`，不强制结束线程。
+- `App` 只能在主线程使用。`run` 不能嵌套。已有 `QApplication` 时复用。
+- `LogPanel` 默认最多保留 2000 条。
+- 安装后可运行 `python -m psi6.examples.minimal --check`，以及 `task_job`、`custom_theme`、`task_status`。项目骨架在 `skills/psi6-desktop/template/`，不属于运行时依赖。
+
 ## 0.2.0
 
 - `App.run` 默认允许多开，也不再记住窗口位置。需要时显式传入 `single_instance=True` 或 `restore_geometry=True`。

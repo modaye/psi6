@@ -1,6 +1,1 @@
-"""示例脚本入口。"""
-
-from psi6.examples.file_index import main
-from psi6.examples.kit import main as kit_main
-
-__all__ = ["kit_main", "main"]
+"""安装后可运行的示例。入口是各个模块的 ``main``，不要从这里取控件。"""

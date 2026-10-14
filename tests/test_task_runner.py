@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 
 from psi6.runtime.logs import LogLevel, LogRecord
@@ -86,6 +87,26 @@ def test_cancel_all_and_shutdown(qtbot) -> None:
     runner.cancel_all()
     qtbot.waitUntil(lambda: handle.status is TaskStatus.CANCELLED, timeout=3000)
     assert runner.shutdown(timeout_ms=2000) is True
+
+
+def test_shutdown_timeout_does_not_kill_the_thread(qtbot) -> None:
+    runner = TaskRunner()
+    started = threading.Event()
+    release = threading.Event()
+
+    def job(is_cancelled=None) -> str:
+        del is_cancelled
+        started.set()
+        release.wait(2)
+        return "done"
+
+    handle = runner.submit(job)
+    qtbot.waitUntil(started.is_set, timeout=3000)
+    assert runner.shutdown(timeout_ms=30) is False
+    assert handle.cancel_requested is True
+    assert handle.status is TaskStatus.RUNNING
+    release.set()
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.CANCELLED, timeout=3000)
 
 
 def test_exclusive_slot_rejects_second_job(qtbot) -> None:

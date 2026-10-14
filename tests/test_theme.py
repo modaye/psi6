@@ -110,6 +110,18 @@ def test_python_theme_overrides_and_rejects_typos() -> None:
     assert loaded.button_radius == 8
     assert loaded.color_bg == Tokens.dark().color_bg
 
+    class Moss(Theme):
+        base = "dark"
+        color_primary = "#4d7c5a"
+
+    class MossSoft(Moss):
+        radius = 8
+
+    child = MossSoft().tokens()
+    assert child.color_primary == "#4d7c5a"
+    assert child.radius == 8
+    assert child.color_bg == Tokens.dark().color_bg
+
     with pytest.raises(TypeError, match="未知 token"):
 
         class Broken(Theme):

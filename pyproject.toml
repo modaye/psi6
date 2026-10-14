@@ -1,7 +1,7 @@
 [project]
 name = "psi6"
-version = "0.2.0"
-description = "PySide6 desktop SDK: App runtime, batch jobs, theme tokens, and window chrome."
+version = "0.3.0"
+description = "Agent-first PySide6 desktop framework: runtime, tasks, Python themes, and window chrome."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

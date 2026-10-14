@@ -87,8 +87,14 @@ class TaskHandle:
             self._error_message = message
             self._error_traceback = traceback_text
 
+    @property
+    def cancel_requested(self) -> bool:
+        """是否已请求取消。``status`` 要等工作函数结束才变成 ``cancelled``。"""
+
+        return self._cancel_flag.is_set()
+
     def cancel(self) -> None:
-        """请求取消。工作函数需检查 ``is_cancelled`` 后自行退出。"""
+        """请求取消。不会 ``terminate`` 线程。工作函数需检查 ``is_cancelled`` 后自行退出。"""
 
         self._cancel_flag.set()
 
@@ -213,7 +219,10 @@ class TaskRunner(QObject):
             handle.cancel()
 
     def shutdown(self, timeout_ms: int = 8000) -> bool:
-        """取消未完成任务并等待线程池结束。返回是否在超时前排空。"""
+        """对未完成任务请求取消并等待线程池。返回是否在超时前排空。
+
+        超时返回 ``False`` 时线程仍在运行，不会被强制结束。
+        """
 
         self.cancel_all()
         return bool(self._pool.waitForDone(timeout_ms))

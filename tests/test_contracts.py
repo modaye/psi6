@@ -171,13 +171,83 @@ def test_packaged_icons_follow_the_module(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_stable_api_imports() -> None:
+    import ast
+
     import psi6
+    import psi6.theme as theme_pkg
 
     for module_name, attr in STABLE:
         module = importlib.import_module(module_name)
         assert hasattr(module, attr)
-        if module_name == "psi6":
-            assert attr in psi6.__all__
-    for name in OPTIONAL_UI:
-        assert name in psi6.__all__
+        assert attr in psi6.__all__
+    assert psi6.Theme is theme_pkg.Theme
+    assert psi6.contrast_notes is theme_pkg.contrast_notes
+    for module_name, attr in OPTIONAL_UI:
+        module = importlib.import_module(module_name)
+        assert hasattr(module, attr)
+        assert attr not in psi6.__all__
+    assert not hasattr(psi6, "DataTable")
     assert all(not name.startswith("_") for name in psi6.__all__)
+    forbidden = (
+        Path(psi6.runtime.tasks.__file__).resolve().parent / "tasks.py",
+        Path(psi6.runtime.job.__file__).resolve().parent / "job.py",
+        Path(theme_pkg.theme.__file__).resolve(),
+        Path(theme_pkg.tokens.__file__).resolve(),
+    )
+    for path in forbidden:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            modules: list[str] = []
+            if isinstance(node, ast.ImportFrom) and node.module:
+                modules.append(node.module)
+            if isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            assert all(not item.startswith("psi6.ui") for item in modules)
+
+
+def test_app_rejects_background_thread(tmp_path: Path) -> None:
+    import threading
+
+    errors: list[str] = []
+
+    def work() -> None:
+        try:
+            App("psi6-bg", config_root=tmp_path)
+        except RuntimeError as exc:
+            errors.append(str(exc))
+
+    thread = threading.Thread(target=work)
+    thread.start()
+    thread.join()
+    assert errors
+
+
+def test_run_rejects_reentry(qtbot: QtBot, tmp_path: Path) -> None:
+    import pytest
+
+    app = App("psi6-reentry", config_root=tmp_path)
+    window = QWidget()
+    qtbot.addWidget(window)
+    app._executing = True
+    with pytest.raises(RuntimeError, match="再次调用"):
+        app.run(window)
+
+
+def test_second_instance_does_not_save_geometry(qtbot: QtBot, tmp_path: Path) -> None:
+    import uuid
+
+    name = f"psi6-lock-{uuid.uuid4().hex}"
+    first = App(name, config_root=tmp_path)
+    second = App(name, config_root=tmp_path)
+    primary = QWidget()
+    extra = QWidget()
+    qtbot.addWidget(primary)
+    qtbot.addWidget(extra)
+    try:
+        assert first._open(primary, tray=False, single_instance=True, restore_geometry=True)
+        assert second._open(extra, tray=False, single_instance=True, restore_geometry=True) is False
+        assert second._instance is None
+        assert second._restore_geometry is False
+    finally:
+        if first._instance is not None:
+            first._instance.close()
