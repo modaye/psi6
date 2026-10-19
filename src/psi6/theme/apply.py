@@ -207,6 +207,14 @@ QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover,
 QPlainTextEdit:hover, QTextEdit:hover, QLineEdit[psi6State="hover"] {{
     border-color: {t.color_primary};
 }}
+QTextBrowser#psi6LogConsole, QTextEdit#psi6LogConsole {{
+    font-family: {t.font_mono};
+    font-size: {t.font_size_sm}px;
+    background: {t.color_sunken};
+    border: 1px solid {t.color_border};
+    border-radius: {r}px;
+    padding: {t.space_sm}px;
+}}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
 QPlainTextEdit:focus, QTextEdit:focus, QDateEdit:focus, QTimeEdit:focus,
 QDateTimeEdit:focus, QLineEdit[psi6State="focus"] {{

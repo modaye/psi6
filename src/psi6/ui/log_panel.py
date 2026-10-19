@@ -26,6 +26,7 @@ _LEVEL_LABELS = {
     "警告": LogLevel.WARNING,
     "错误": LogLevel.ERROR,
     "信息": LogLevel.INFO,
+    "调试": LogLevel.DEBUG,
 }
 
 _LEVEL_TEXT = {
@@ -33,6 +34,7 @@ _LEVEL_TEXT = {
     LogLevel.WARNING: "警告",
     LogLevel.ERROR: "错误",
     LogLevel.INFO: "信息",
+    LogLevel.DEBUG: "调试",
 }
 
 

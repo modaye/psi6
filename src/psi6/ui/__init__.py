@@ -47,6 +47,7 @@ from psi6.ui.status_progress import StatusProgress
 from psi6.ui.stepper import Stepper
 from psi6.ui.switch import Switch
 from psi6.ui.tag import Tag, TagRow
+from psi6.ui.log_console import LogConsole, LogConsoleHandler
 from psi6.ui.title_bar import TitleBar
 from psi6.ui.toast import ToastCard, ToastHost
 from psi6.ui.tone import Tone
@@ -84,6 +85,8 @@ __all__ = [
     "IconPreview",
     "ImageWell",
     "KbdHint",
+    "LogConsole",
+    "LogConsoleHandler",
     "LogPanel",
     "MessageList",
     "NavDestination",

@@ -13,9 +13,14 @@ __all__ = ["FileInput", "FolderInput", "PathState"]
 
 
 class FileInput(QWidget):
-    """选择一个或多个本地文件，并校验路径是否存在。"""
+    """选择一个或多个本地文件，并校验路径是否存在。
+
+    多个文件在输入框里用分号分隔。``path_changed`` 每次按键都发出；
+    ``path_edited`` 在编辑结束、浏览、拖放或清除后发出。
+    """
 
     path_changed = Signal(object)
+    path_edited = Signal(object)
 
     def __init__(
         self,
@@ -23,6 +28,7 @@ class FileInput(QWidget):
         filters: str = "All Files (*)",
         multiple: bool = False,
         allow_empty: bool = False,
+        clearable: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -30,8 +36,10 @@ class FileInput(QWidget):
             mode="files" if multiple else "file",
             filters=filters,
             allow_empty=allow_empty,
+            clearable=clearable,
         )
         self._picker.path_changed.connect(self.path_changed.emit)
+        self._picker.path_edited.connect(self.path_edited.emit)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._picker)
@@ -62,19 +70,22 @@ class FileInput(QWidget):
 
 
 class FolderInput(QWidget):
-    """选择本地目录。"""
+    """选择本地目录。信号含义与 ``FileInput`` 相同。"""
 
     path_changed = Signal(object)
+    path_edited = Signal(object)
 
     def __init__(
         self,
         *,
         allow_empty: bool = False,
+        clearable: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._picker = PathPicker(mode="folder", allow_empty=allow_empty)
+        self._picker = PathPicker(mode="folder", allow_empty=allow_empty, clearable=clearable)
         self._picker.path_changed.connect(self.path_changed.emit)
+        self._picker.path_edited.connect(self.path_edited.emit)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._picker)

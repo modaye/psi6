@@ -24,6 +24,22 @@ def test_app_config_roundtrip(qtbot: QtBot, tmp_path: Path) -> None:
     assert loaded.retries == 4
 
 
+def test_remembered_path_drops_missing_entries(qtbot: QtBot, tmp_path: Path) -> None:
+    """界面路径记进 QSettings；恢复时目录已不在就清掉，不留死路径。"""
+
+    from PySide6.QtCore import QSettings
+
+    app = App("psi6-path-memory-test", config_root=tmp_path)
+    folder = tmp_path / "input"
+    folder.mkdir()
+    app.remember_path("last_dir", folder)
+    assert app.recalled_path("last_dir") == folder
+    folder.rmdir()
+    assert app.recalled_path("last_dir") is None
+    assert app.recalled_path("last_dir", must_exist=False) is None
+    QSettings(app.organization, app.name).clear()
+
+
 def test_notifier_records_last(qtbot: QtBot) -> None:
     notifier = Notifier()
     notifier.warning("慢一点")

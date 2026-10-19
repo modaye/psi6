@@ -66,6 +66,52 @@ def test_transport_and_chat_and_tiles(qtbot: QtBot) -> None:
     qtbot.addWidget(row)
 
 
+def test_log_console_handler_shows_stdlib_records(qtbot: QtBot) -> None:
+    """标准库 Handler 把级别名和正文送进面板，工作线程也会排队回来。"""
+
+    import logging
+    import threading
+
+    from psi6.theme.runtime import token_color
+    from psi6.ui.log_console import LogConsole
+
+    console = LogConsole()
+    qtbot.addWidget(console)
+    demo = logging.getLogger("psi6.test.console")
+    demo.setLevel(logging.DEBUG)
+    demo.propagate = False
+    handler = console.handler(level=logging.DEBUG)
+    demo.addHandler(handler)
+    try:
+        threading.Thread(target=lambda: demo.warning("汇率缺失-psi6"), daemon=True).start()
+        qtbot.waitUntil(lambda: "汇率缺失-psi6" in console.toPlainText(), timeout=2000)
+        text = console.toPlainText()
+        assert "WARNING" in text
+        assert "psi6.test.console" in text
+        assert token_color("color_warning").startswith("#")
+    finally:
+        demo.removeHandler(handler)
+
+
+def test_log_console_appends_and_caps(qtbot: QtBot, tmp_path) -> None:
+    """纯文本操作日志：加时间戳、限行数，颜色按级别取 token。"""
+
+    from psi6.runtime.logs import LogLevel, LogRecord
+    from psi6.ui.log_console import LogConsole
+
+    panel = LogConsole(max_entries=120)
+    qtbot.addWidget(panel)
+    panel.append(LogRecord(LogLevel.INFO, "开始读取"))
+    panel.append(LogRecord(LogLevel.ERROR, "解析失败", detail="第 3 行"))
+    text = panel.document().toPlainText()
+    assert "开始读取" in text
+    assert "解析失败" in text
+    assert "第 3 行" in text
+    for index in range(200):
+        panel.append(LogRecord(LogLevel.INFO, f"row {index}"))
+    assert panel.document().blockCount() <= 120
+
+
 def test_kit_window_builds(qtbot: QtBot, tmp_path) -> None:
     app = App("psi6-kit-test", config_root=tmp_path)
     window = KitWindow(app)

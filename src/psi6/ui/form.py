@@ -12,7 +12,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
-from PySide6.QtCore import QDate, QDateTime, QTime
+from PySide6.QtCore import QDate, QDateTime, QObject, QTime
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -268,11 +268,30 @@ class FormView(QWidget):
             raise FormError(message, field_errors) from exc
 
     def set_model(self, model: BaseModel) -> None:
-        data = model.model_dump()
-        for binding in self._bindings:
-            if binding.name in data:
-                binding.setter(data[binding.name])
-        self._clear_errors()
+        """回填全部字段，期间挡住子控件信号。
+
+        逐个 ``set_path`` 会让还没回填的字段被「即改即存」写成空。
+        ``restore`` 是同一个方法，方便按「恢复会话」来读。
+        """
+
+        silenced: list[tuple[QObject, bool]] = []
+        for widget in (self, *self.findChildren(QObject)):
+            silenced.append((widget, widget.signalsBlocked()))
+            widget.blockSignals(True)
+        try:
+            data = model.model_dump()
+            for binding in self._bindings:
+                if binding.name in data:
+                    binding.setter(data[binding.name])
+            self._clear_errors()
+        finally:
+            for widget, blocked in reversed(silenced):
+                widget.blockSignals(blocked)
+
+    def restore(self, model: BaseModel) -> None:
+        """同 ``set_model``。回填不逐字段发信号。"""
+
+        self.set_model(model)
 
     def _show_errors(self, field_errors: dict[str, str]) -> None:
         lookup = {item.name: item for item in self._bindings}

@@ -1,5 +1,27 @@
 # 变更
 
+## 0.5.0
+
+- `on_failed` 声明第二个位置参数时同时收到原异常对象。数据错误可以直接读异常上的结构，不再把错误码和说明塞进一段文字。单参数回调行为不变，堆栈仍在 `TaskHandle.error_traceback`。
+- 新增 `psi6.runtime.logs.task_log`：任务执行期间任意调用深度都能写一行日志，不必把 `on_log` 逐层传下去。日志仍批量节流送回界面；任务之外调用回退到标准库 `logging`。
+- `runner.submit(..., on_busy=...)`：同名 `exclusive` 槽还在跑时，被挡下的提交会同步触发一次 `on_busy`。不给则保持原来的静默行为。按钮禁用仍由界面负责。
+
+以上三条来自第一个真实应用（DBS）的集成反馈。它自绘页眉、路径行和按钮，验证了 0.4.0 删除 `BatchToolWindow` 后的组合模型。
+
+以下五条来自 DBS 与 HK 的第二轮反馈：
+
+- 日志与进度缓冲加锁：joblib 等工作线程并发调用注入的 `on_log` / `on_progress` 不再丢记录，应用不必在外面自己加锁。应用的收尾回调抛错也不再污染 Qt 事件循环，错误打印到 stderr。
+- `on_failed` 声明第三个位置参数时再带堆栈文本，可直接交给 `fail(..., detail=...)`。
+- `runner.submit(..., on_finished=...)`：成功、失败、取消任一收尾后都执行一次，即使收尾回调自己抛错。界面用它恢复按钮；被 `exclusive` 挡下的提交走 `on_busy`。
+- `App.remember_path` / `App.recalled_path`：界面路径记进 `QSettings`；恢复时路径已不在就清掉该项。程序参数仍走 pydantic 配置。
+- 新增 `LogConsole`（`QTextBrowser`）：按时间往下滚的终端式日志。时间戳用辅助色，级别名和正文用该级别的主题色。`LogConsoleHandler` 用标准库 `logger.addHandler(console.handler())` 接入，工作线程会排队回界面线程。表格型 `LogPanel` 仍然保留。
+
+以下来自第三个应用的集成反馈：
+
+- `TaskRunner` 把提交线程的 `ContextVar` 带进工作线程。任务内部再开的线程不会自动继承，用 `psi6.runtime.logs.capture_task_context().run(...)`。
+- `FormView.set_model` / `restore` 回填时挡住全部子控件信号，即改即存不会把还没回填的字段写成空。
+- `FileInput` / `FolderInput` 默认带清除按钮（`clearable=False` 可关）。`path_changed` 仍随按键发出；`path_edited` 在编辑结束、浏览、拖放或清除后发出，用来保存。多个路径仍用分号分隔。
+
 ## 0.4.1
 
 - 默认浅色和深色调色板重调：中性色带轻微冷色倾向，边框更细，浅色主色改为更明确的蓝，深色主色更透亮。字体栈优先 `Segoe UI Variable Text`。

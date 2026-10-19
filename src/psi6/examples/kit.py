@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -28,6 +30,7 @@ from psi6.theme.builtin import (
     Obsidian,
     Pine,
 )
+from psi6.runtime.logs import LogLevel, LogRecord
 from psi6.theme.theme import Theme
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
@@ -44,6 +47,7 @@ from psi6.ui.log_panel import LogPanel
 from psi6.ui.search_field import SearchField
 from psi6.ui.segmented import SegmentedControl
 from psi6.ui.status_badge import StatusBadge
+from psi6.ui.log_console import LogConsole
 from psi6.ui.status_progress import StatusProgress
 from psi6.ui.switch import Switch
 
@@ -210,7 +214,11 @@ class KitWindow(DesktopWindow):
         return self._wrap(header, body)
 
     def _page_feedback(self) -> QWidget:
-        header = PageHeader("反馈", hint="横幅留在页内。短句走通知。进度在状态栏。", icon="info")
+        header = PageHeader(
+            "反馈",
+            hint="横幅留在页内。短句走通知。进度在状态栏。下方是终端式彩色日志。",
+            icon="info",
+        )
         banner = Banner()
         banner.set_notice("目录为空时把原因写在横幅里。", tone="warning")
         toast = primary_button("弹出成功通知")
@@ -223,17 +231,40 @@ class KitWindow(DesktopWindow):
         busy.clicked.connect(lambda: self._busy_table.set_busy(True, "正在索引"))
         idle = ghost_button("结束忙碌")
         idle.clicked.connect(lambda: self._busy_table.set_busy(False))
+        console = LogConsole(max_entries=200)
+        for level, message in (
+            (LogLevel.DEBUG, "扫描目录"),
+            (LogLevel.INFO, "开始读取"),
+            (LogLevel.SUCCESS, "写入完成"),
+            (LogLevel.WARNING, "汇率缺失"),
+            (LogLevel.ERROR, "月份解析失败"),
+        ):
+            console.append(LogRecord(level, message, extra={"logger": "psi6.kit"}))
+        demo_log = logging.getLogger("psi6.kit.demo")
+        demo_log.setLevel(logging.DEBUG)
+        demo_log.propagate = False
+        demo_handler = console.handler()
+        demo_log.addHandler(demo_handler)
+
+        def drop_demo_handler(*_args: object) -> None:
+            demo_log.removeHandler(demo_handler)
+
+        console.destroyed.connect(drop_demo_handler)
+        more = ghost_button("再写一行")
+        more.clicked.connect(lambda: demo_log.info("来自 logging 的一行"))
         actions = ActionBar()
         actions.add_left(toast)
         actions.add_left(show_progress)
         actions.add_left(busy)
         actions.add_left(idle)
+        actions.add_left(more)
         body = QWidget()
         column = QVBoxLayout(body)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(12)
         column.addWidget(banner)
         column.addWidget(actions)
+        column.addWidget(console, stretch=1)
         column.addWidget(self._busy_table, stretch=1)
         return self._wrap(header, body)
 

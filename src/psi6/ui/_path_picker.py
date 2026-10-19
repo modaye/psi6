@@ -28,9 +28,15 @@ class PathState(StrEnum):
 
 
 class PathPicker(QWidget):
-    """可编辑路径 + 浏览按钮，支持拖放。"""
+    """可编辑路径 + 浏览按钮，支持拖放。
+
+    多个路径用分号 ``;`` 拼在同一行。路径本身含分号时 ``paths()`` 会把它切开。
+    ``path_changed`` 随每次按键发出，适合即时校验。``path_edited`` 在输入结束、
+    浏览、拖放或点清除之后发出，适合保存。
+    """
 
     path_changed = Signal(object)
+    path_edited = Signal(object)
 
     def __init__(
         self,
@@ -38,6 +44,7 @@ class PathPicker(QWidget):
         mode: Mode,
         filters: str = "All Files (*)",
         allow_empty: bool = False,
+        clearable: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -51,7 +58,12 @@ class PathPicker(QWidget):
         layout.setSpacing(6)
         self._edit = QLineEdit()
         self._edit.setPlaceholderText(self._placeholder())
+        self._edit.setClearButtonEnabled(clearable)
+        if clearable:
+            for action in self._edit.actions():
+                action.triggered.connect(self._emit_edited)
         self._edit.textChanged.connect(self._on_text_changed)
+        self._edit.editingFinished.connect(self._emit_edited)
         self._edit.installEventFilter(self)
         browse = QPushButton("浏览…")
         browse.setFixedWidth(72)
@@ -93,6 +105,7 @@ class PathPicker(QWidget):
             file = next((path for path in paths if path.is_file()), None)
             if file is not None:
                 self.set_path(file)
+        self._emit_edited()
         event.acceptProposedAction()
 
     def _placeholder(self) -> str:
@@ -106,6 +119,9 @@ class PathPicker(QWidget):
         self._refresh_valid()
         self.path_changed.emit(self.path())
 
+    def _emit_edited(self) -> None:
+        self.path_edited.emit(self.path())
+
     def _refresh_valid(self) -> None:
         invalid = self.state is PathState.INVALID
         self.setProperty("invalid", invalid)
@@ -118,17 +134,20 @@ class PathPicker(QWidget):
         start = self._edit.text().strip()
         if self._mode == "folder":
             chosen = QFileDialog.getExistingDirectory(self, "选择目录", start)
-            if chosen:
-                self.set_path(chosen)
-            return
-        if self._mode == "files":
+            if not chosen:
+                return
+            self.set_path(chosen)
+        elif self._mode == "files":
             paths, _ = QFileDialog.getOpenFileNames(self, "选择文件", start, self._filters)
-            if paths:
-                self.set_paths(paths)
-            return
-        path, _ = QFileDialog.getOpenFileName(self, "选择文件", start, self._filters)
-        if path:
+            if not paths:
+                return
+            self.set_paths(paths)
+        else:
+            path, _ = QFileDialog.getOpenFileName(self, "选择文件", start, self._filters)
+            if not path:
+                return
             self.set_path(path)
+        self._emit_edited()
 
     def _browse(self) -> None:
         self.browse()
@@ -138,6 +157,8 @@ class PathPicker(QWidget):
         return paths[0] if paths else None
 
     def paths(self) -> list[Path]:
+        """按分号拆开当前文本。单个路径里不要包含 ``;``。"""
+
         text = self._edit.text().strip()
         if not text:
             return []

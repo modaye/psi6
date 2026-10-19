@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import inspect
 import itertools
 import threading
@@ -20,7 +21,7 @@ from typing import Any
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 
 from psi6.runtime.errors import format_exception
-from psi6.runtime.logs import LogRecord
+from psi6.runtime.logs import _ACTIVE_SINK, LogRecord
 
 
 class TaskStatus(StrEnum):
@@ -105,7 +106,7 @@ class _JobSignals(QObject):
     progress = Signal(str, int, int, str)
     log = Signal(str, object)
     succeeded = Signal(str, object)
-    failed = Signal(str, str, str)
+    failed = Signal(str, str, str, object)
     cancelled = Signal(str)
 
 
@@ -121,6 +122,7 @@ class _JobRunnable(QRunnable):
         signals: _JobSignals,
         cancel_flag: threading.Event,
         inject: dict[str, Any],
+        context: contextvars.Context,
     ) -> None:
         super().__init__()
         self._job_id = job_id
@@ -130,10 +132,14 @@ class _JobRunnable(QRunnable):
         self._signals = signals
         self._cancel_flag = cancel_flag
         self._inject = inject
+        self._context = context
         self.setAutoDelete(True)
 
     @Slot()
     def run(self) -> None:
+        self._context.run(self._run_in_context)
+
+    def _run_in_context(self) -> None:
         if self._cancel_flag.is_set():
             self._emit_cancelled()
             return
@@ -155,6 +161,7 @@ class _JobRunnable(QRunnable):
                 self._job_id,
                 format_exception(exc),
                 traceback.format_exc(),
+                exc,
             )
 
     def _emit_cancelled(self) -> None:
@@ -182,6 +189,22 @@ def _accepts(fn: Callable[..., Any], name: str) -> bool:
     except (TypeError, ValueError):
         return False
     return name in params
+
+
+def _positional_capacity(callback: Callable[..., Any]) -> int:
+    """回调能收几个位置参数，最多算到 3。签名取不到按 1，老回调不受影响。"""
+
+    try:
+        params = list(inspect.signature(callback).parameters.values())
+    except (TypeError, ValueError):
+        return 1
+    if any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in params):
+        return 3
+    positional = {
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    }
+    return min(3, sum(1 for p in params if p.kind in positional))
 
 
 class TaskRunner(QObject):
@@ -234,8 +257,10 @@ class TaskRunner(QObject):
         on_progress: Callable[[int, int, str], None] | None = None,
         on_log: Callable[[LogRecord], None] | None = None,
         on_succeeded: Callable[[Any], None] | None = None,
-        on_failed: Callable[[str], None] | None = None,
+        on_failed: Callable[..., None] | None = None,
         on_cancelled: Callable[[], None] | None = None,
+        on_busy: Callable[[], None] | None = None,
+        on_finished: Callable[[], None] | None = None,
         exclusive: str | None = None,
         progress_interval_ms: int = 50,
         log_interval_ms: int = 50,
@@ -244,9 +269,16 @@ class TaskRunner(QObject):
         """从 UI 线程提交后台任务。
 
         若 ``fn`` 声明了 ``on_progress`` / ``on_log`` / ``is_cancelled``，
-        由运行器注入，不必由调用方手动传递。
-        ``on_failed`` 收到用户可读短句；完整堆栈在 ``TaskHandle.error_traceback``。
+        由运行器注入，不必由调用方手动传递。任务内部任意深度可用
+        ``psi6.runtime.logs.task_log`` 写日志；其它线程调用注入的 ``on_log``
+        是安全的，缓冲有锁。提交线程上的 ``ContextVar`` 会带进这次任务。
+        任务内部再开的线程不会自动继承，用 ``capture_task_context().run(...)``。
+        ``on_failed`` 收到用户可读短句；声明第二个位置参数时同时收到原异常对象，
+        第三个位置参数再带堆栈文本。
         ``exclusive`` 占用同名槽位：已有任务在跑则返回那个句柄，不启动第二份。
+        被槽位挡下时若给了 ``on_busy`` 会同步触发一次；按钮禁用仍由界面自己负责。
+        ``on_finished`` 在成功、失败、取消任一收尾后都执行一次，
+        即使前面的回调自己抛错；被槽位挡下的提交不触发。
         进度只保留间隔内最新一条；日志按间隔批量送回 UI，结束时冲刷剩余。
         """
 
@@ -254,6 +286,8 @@ class TaskRunner(QObject):
             with self._lock:
                 current = self._slots.get(exclusive)
             if current is not None and current.status in {TaskStatus.QUEUED, TaskStatus.RUNNING}:
+                if on_busy is not None:
+                    _invoke(on_busy)
                 return current
 
         job_id = f"job-{next(self._seq)}-{uuid.uuid4().hex[:8]}"
@@ -277,20 +311,22 @@ class TaskRunner(QObject):
         )
         signals.succeeded.connect(
             lambda jid, result, expected=job_id, cb=on_succeeded: (
-                self._finish(expected, TaskStatus.SUCCEEDED, cb, result)
+                self._finish(expected, TaskStatus.SUCCEEDED, cb, result, on_finished=on_finished)
                 if jid == expected
                 else None
             ),
             Qt.ConnectionType.QueuedConnection,
         )
         signals.failed.connect(
-            lambda jid, message, tb, expected=job_id, cb=on_failed: (
+            lambda jid, message, tb, exc, expected=job_id, cb=on_failed: (
                 self._finish(
                     expected,
                     TaskStatus.FAILED,
                     cb,
                     message,
                     traceback_text=tb,
+                    exception=exc,
+                    on_finished=on_finished,
                 )
                 if jid == expected
                 else None
@@ -299,7 +335,7 @@ class TaskRunner(QObject):
         )
         signals.cancelled.connect(
             lambda jid, expected=job_id, cb=on_cancelled: (
-                self._finish(expected, TaskStatus.CANCELLED, cb, None)
+                self._finish(expected, TaskStatus.CANCELLED, cb, None, on_finished=on_finished)
                 if jid == expected
                 else None
             ),
@@ -312,6 +348,8 @@ class TaskRunner(QObject):
         pending_progress: tuple[int, int, str] | None = None
         log_buffer: list[LogRecord] = []
         last_log = 0.0
+        progress_lock = threading.Lock()
+        log_lock = threading.Lock()
 
         def emit_progress(current: int, total: int, message: str) -> None:
             nonlocal last_progress, pending_progress
@@ -319,29 +357,34 @@ class TaskRunner(QObject):
                 return
             now = time.monotonic()
             final = total > 0 and current >= total
-            if progress_gap > 0 and not final and now - last_progress < progress_gap:
-                pending_progress = (current, total, message)
-                return
-            pending_progress = None
-            last_progress = now
+            with progress_lock:
+                if progress_gap > 0 and not final and now - last_progress < progress_gap:
+                    pending_progress = (current, total, message)
+                    return
+                pending_progress = None
+                last_progress = now
             signals.progress.emit(job_id, current, total, message)
 
         def flush_progress() -> None:
             nonlocal pending_progress, last_progress
-            if pending_progress is None or cancel_flag.is_set():
+            if cancel_flag.is_set():
                 return
-            current, total, message = pending_progress
-            pending_progress = None
-            last_progress = time.monotonic()
+            with progress_lock:
+                if pending_progress is None:
+                    return
+                current, total, message = pending_progress
+                pending_progress = None
+                last_progress = time.monotonic()
             signals.progress.emit(job_id, current, total, message)
 
         def flush_logs() -> None:
             nonlocal last_log
-            if not log_buffer:
-                return
-            records = list(log_buffer)
-            log_buffer.clear()
-            last_log = time.monotonic()
+            with log_lock:
+                if not log_buffer:
+                    return
+                records = list(log_buffer)
+                log_buffer.clear()
+                last_log = time.monotonic()
             for record in records:
                 if not cancel_flag.is_set():
                     signals.log.emit(job_id, record)
@@ -349,15 +392,18 @@ class TaskRunner(QObject):
         def emit_log(record: LogRecord) -> None:
             if cancel_flag.is_set():
                 return
-            log_buffer.append(record)
-            now = time.monotonic()
-            if log_gap <= 0 or now - last_log >= log_gap:
+            with log_lock:
+                log_buffer.append(record)
+                due = log_gap <= 0 or time.monotonic() - last_log >= log_gap
+            if due:
                 flush_logs()
 
         def wrapped(*call_args: Any, **call_kwargs: Any) -> Any:
+            token = _ACTIVE_SINK.set(emit_log)
             try:
                 return fn(*call_args, **call_kwargs)
             finally:
+                _ACTIVE_SINK.reset(token)
                 flush_progress()
                 flush_logs()
 
@@ -376,7 +422,16 @@ class TaskRunner(QObject):
                 self._slots[exclusive] = handle
 
         handle._set_status(TaskStatus.RUNNING)
-        runnable = _JobRunnable(job_id, wrapped, args, kwargs, signals, cancel_flag, inject)
+        runnable = _JobRunnable(
+            job_id,
+            wrapped,
+            args,
+            kwargs,
+            signals,
+            cancel_flag,
+            inject,
+            contextvars.copy_context(),
+        )
         self._pool.start(runnable)
         return handle
 
@@ -387,6 +442,8 @@ class TaskRunner(QObject):
         callback: Callable[..., Any] | None,
         payload: Any,
         traceback_text: str | None = None,
+        exception: BaseException | None = None,
+        on_finished: Callable[[], None] | None = None,
     ) -> None:
         handle = self._jobs.get(job_id)
         if handle is not None:
@@ -395,11 +452,26 @@ class TaskRunner(QObject):
                 handle._set_result(payload)
             elif status is TaskStatus.FAILED and isinstance(payload, str):
                 handle._set_error(payload, traceback_text or "")
-        if callback is not None:
-            if status is TaskStatus.CANCELLED:
-                _invoke(callback)
-            else:
-                _invoke(callback, payload)
+        try:
+            if callback is not None:
+                if status is TaskStatus.CANCELLED:
+                    _invoke(callback)
+                elif status is TaskStatus.FAILED and exception is not None:
+                    capacity = _positional_capacity(callback)
+                    if capacity >= 3:
+                        _invoke(callback, payload, exception, traceback_text or "")
+                    elif capacity == 2:
+                        _invoke(callback, payload, exception)
+                    else:
+                        _invoke(callback, payload)
+                else:
+                    _invoke(callback, payload)
+        except Exception:
+            # 应用回调自己的错不能拖垮事件循环；打印出来，收尾回调照常执行。
+            traceback.print_exc()
+        finally:
+            if on_finished is not None:
+                _invoke(on_finished)
         with self._lock:
             self._jobs.pop(job_id, None)
             self._signals.pop(job_id, None)

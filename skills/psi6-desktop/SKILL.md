@@ -22,7 +22,7 @@ description: >-
    - 默认允许多开，也不记住窗口位置。需要时 `app.run(window, single_instance=True, restore_geometry=True)`。
    - 关窗口、点取消、应用退出是三件事，见下文「三件事」。应用退出时按「窗口几何 → `runner.shutdown()` → 单实例锁 → 隐藏托盘」收尾。
    - `tray=True` 且系统有托盘时，关窗口是隐藏，任务继续。没有托盘时，关最后一个窗口会退出进程，退出时才收尾。不要假设进程会留在后台。
-   - 配置：`App.load_config` / `save_config`。设置页用 `pydantic_settings`（`field_switch(..., group="扫描")`）。
+   - 配置分三处，不要混：进程和环境变量用应用自己的 pydantic-settings；程序参数用 `App.load_config` / `save_config`（`~/.psi6/<app>/config.json`）；上次选过的路径用 `remember_path` / `recalled_path`。设置页用 `pydantic_settings`（`field_switch(..., group="扫描")`）。窗口位置只有 `restore_geometry=True` 才写入 `window.json`，不要在 `DesktopWindow` 里自动恢复。
    - 父子：子控件靠 `layout.addWidget` 获得父对象。不进布局的（覆盖层、边缘热区、Toast、对话框）才写 `parent=`。从布局移除时不要 `setParent(None)`，`hide()` 后 `deleteLater()`。初始化可以 `hide()`，不要主动 `show()`；主窗口树搭完后再 `show()`。
 2. **任务 `TaskRunner`**：读盘、扫目录、网络必须 `app.runner.submit`。表单、结果表、日志由页面自己放。不要手写 `QThread`，也不要做整页任务模板。
 
@@ -30,7 +30,7 @@ description: >-
 def run_job(params, *, on_progress, on_log, is_cancelled) -> JobOutcome: ...
 ```
 
-`handle.cancel()` 只把 `handle.cancel_requested` 设为真，不会杀掉线程。工作函数看到 `is_cancelled()` 后 `raise InterruptedError`，返回之后 `TaskHandle.status` 才变成 `cancelled`。忽略取消并正常返回时，若请求已经发出，结束状态仍是 `cancelled`。`runner.shutdown()` 超时得到 `False` 表示线程还在跑。返回 `JobOutcome(rows=..., message=...)` 只表示要填进表的结果。同一槽同时只跑一份：`runner.submit(..., exclusive="batch")`。`runner.is_busy("scan")` 查的是这个槽。进度默认 50ms 节流。`LogPanel` 默认最多 2000 条，需要纯文本时不要用它，自己接 `on_log`。合同见 `psi6.jobs.file_index`，那不是要复制的行业模板。
+`handle.cancel()` 只把 `handle.cancel_requested` 设为真，不会杀掉线程。工作函数看到 `is_cancelled()` 后 `raise InterruptedError`，返回之后 `TaskHandle.status` 才变成 `cancelled`。忽略取消并正常返回时，若请求已经发出，结束状态仍是 `cancelled`。`runner.shutdown()` 超时得到 `False` 表示线程还在跑。返回 `JobOutcome(rows=..., message=...)` 只表示要填进表的结果。同一槽同时只跑一份：`runner.submit(..., exclusive="batch")`，被挡下时 `on_busy` 会触发一次；`runner.is_busy("scan")` 查的是这个槽。按钮恢复用 `on_finished`，成功、失败、取消都会触发。进度默认 50ms 节流。深层函数写日志用 `psi6.runtime.logs.task_log`，不要把 `on_log` 逐层传下去。提交时的 `ContextVar` 会进工作线程；任务里再开的线程（joblib `threading` 等）不会继承，在进去之前 `capture_task_context().run(fn)`。缓冲有锁。`on_failed` 声明第二个参数可拿到原异常对象，第三个参数带堆栈文本，直接给 `fail(..., detail=...)`；数据错误读异常结构，不要把错误码塞进一段文字。`LogPanel` 是可筛选表格，默认最多 2000 条；终端式彩色日志用 `LogConsole`，用 `logger.addHandler(console.handler())` 接标准库 logging。别的日志库先把记录送进 logging，再由同一个 Handler 显示。界面记住上次目录用 `app.remember_path` / `app.recalled_path`，失效路径自动清掉，不要自己写 JSON。合同见 `psi6.jobs.file_index`，那不是要复制的行业模板。
 
 进度条：
 
@@ -40,7 +40,7 @@ def run_job(params, *, on_progress, on_log, is_cancelled) -> JobOutcome: ...
 3. **主题**：颜色、尺寸、时长只用 token。`base` 只选 `light` 或 `dark`。`style` 只选 `modern` 或 `compact`。不要写 `density`。文字只用标题、正文、辅助三档。自绘 `create_painter` / `rounded_rect_path` / `mix_color`，读 `token_color` / `token_int` / `token_ms`。不要 emoji、不要页面私有 QSS。动画只调时长 token；`reduced_motion: 1` 或时长 `0` 关闭。按下缩小：`install_press_scale`。对比度用 `contrast_notes(tokens)`，它只返回说明，不阻止 `Theme` 加载。结构错误（未知字段、错误的 `base` / `style`、显式图标目录不存在）才抛错。高 DPI 使用 `PassThrough`，几何是逻辑像素，图标按 `devicePixelRatio` 栅格化。悬停和按下必须能分开。禁用改颜色和边框，不只降低透明度。键盘焦点环保留。校验错误要有文字，不能只靠红框。标签不适用按下。
 4. **窗壳通用件**：默认不要自绘标题栏。`frameless=True` 时才用 `TitleBar`（拖动、双击最大化、从最大化拖出还原）。`DesktopWindow.set_icon`、`TrayIcon.refresh`（换主题重绘）、`SingleInstance`（仅在 `single_instance=True` 时使用）。多页用 `AppShell` + `NavDestination`（`set_sidebar_compact`，宽度走 `token_ms`）。浅色主题画布是纯白 `color_bg`。
 
-表单用 Pydantic + `pydantic_form` / `field_dir` / `field_file`。路径行用 `FileInput` / `FolderInput`，不要业务里直接 `QFileDialog`。用户短句用 `app.notifier`（`info` 只进状态栏）；必须看见的错误用 `fail`/`warn`；过程记录用 `LogPanel` + `LogRecord`。任务进行中 `DataTable.set_busy`。
+表单用 Pydantic + `pydantic_form` / `field_dir` / `field_file`。回填用 `form.restore(model)`（同 `set_model`），期间挡住子控件信号，避免即改即存把还没填的字段写成空。路径行用 `FileInput` / `FolderInput`：`path_changed` 每次按键都发，保存接 `path_edited`；默认带清除按钮，`clearable=False` 关掉。多个路径用分号分隔，路径本身不要含 `;`。不要业务里直接 `QFileDialog`。用户短句用 `app.notifier`（`info` 只进状态栏）；必须看见的错误用 `fail`/`warn`；过程记录用 `LogPanel` + `LogRecord`。任务进行中 `DataTable.set_busy`。
 
 对照窗口：`python -m psi6 kit`，侧栏按按钮、输入、选择、导航、数据、反馈、窗口分组，另有状态矩阵、四种组合和一页组合。整页参考：`python -m psi6`（文件索引）。它示范表单、开始、取消、状态栏进度、日志和结果如何拼在一起，不是要复制的行业模板。
 

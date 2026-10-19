@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from pydantic import BaseModel
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget
 
 from psi6.runtime.config import ConfigStore
@@ -159,6 +159,33 @@ class App:
         """保存本应用的用户配置。"""
 
         self.store.save(model, app_name=self.name)
+
+    def remember_path(self, key: str, path: str | Path) -> None:
+        """把界面用到的路径写进 ``QSettings``，例如上次选择的目录。
+
+        程序参数仍走 ``load_config`` / ``save_config``；这里只记界面状态。
+        """
+
+        settings = QSettings(self.organization, self.name)
+        settings.setValue(f"ui/paths/{key}", str(Path(path)))
+        settings.sync()
+
+    def recalled_path(self, key: str, *, must_exist: bool = True) -> Path | None:
+        """读出 ``remember_path`` 记住的路径。
+
+        ``must_exist`` 为真时，路径已经不存在就清掉这一项并返回 ``None``。
+        """
+
+        settings = QSettings(self.organization, self.name)
+        raw = settings.value(f"ui/paths/{key}", "", type=str)
+        if not raw:
+            return None
+        path = Path(raw)
+        if must_exist and not path.exists():
+            settings.remove(f"ui/paths/{key}")
+            settings.sync()
+            return None
+        return path
 
     def run(
         self,

@@ -37,6 +37,26 @@ class Sample(BaseModel):
     folder: Path = Field(json_schema_extra={"kind": "dir"}, description="目录")
 
 
+def test_restore_does_not_emit_path_changes(qtbot: QtBot, tmp_path: Path) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+
+    class TwoFolders(BaseModel):
+        left: Path = Field(json_schema_extra={"kind": "dir"}, description="左")
+        right: Path = Field(json_schema_extra={"kind": "dir"}, description="右")
+
+    view = pydantic_form(TwoFolders)
+    qtbot.addWidget(view)
+    hits: list[object] = []
+    for picker in view.findChildren(FolderInput):
+        picker.path_changed.connect(hits.append)
+    view.restore(TwoFolders(left=tmp_path, right=other))
+    assert hits == []
+    model = view.get_model()
+    assert model.left == tmp_path
+    assert model.right == other
+
+
 def test_form_roundtrip(qtbot: QtBot, tmp_path: Path) -> None:
     view = pydantic_form(Sample(title="ok", folder=tmp_path))
     qtbot.addWidget(view)
