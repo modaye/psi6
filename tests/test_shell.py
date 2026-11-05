@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pytestqt.qtbot import QtBot
 from PySide6.QtWidgets import QLabel
+from pytestqt.qtbot import QtBot
 
 from psi6.examples.kit import KitWindow
 from psi6.icons.glyphs import icon_names, svg_markup
@@ -93,6 +93,32 @@ def test_log_console_handler_shows_stdlib_records(qtbot: QtBot) -> None:
         demo.removeHandler(handler)
 
 
+def test_log_console_exception_is_shown_once(qtbot: QtBot) -> None:
+    import logging
+
+    from psi6.ui.log_console import LogConsole
+
+    console = LogConsole()
+    qtbot.addWidget(console)
+    demo = logging.getLogger("psi6.test.console.exc")
+    demo.setLevel(logging.DEBUG)
+    demo.propagate = False
+    handler = console.handler(level=logging.DEBUG)
+    demo.addHandler(handler)
+    try:
+        try:
+            raise ZeroDivisionError("boom-psi6")
+        except ZeroDivisionError:
+            demo.exception("读取失败")
+        qtbot.waitUntil(lambda: "读取失败" in console.toPlainText(), timeout=2000)
+        text = console.toPlainText()
+        assert text.count("读取失败") == 1
+        assert text.count("Traceback (most recent call last)") == 1
+        assert text.count("ZeroDivisionError: boom-psi6") == 1
+    finally:
+        demo.removeHandler(handler)
+
+
 def test_log_console_appends_and_caps(qtbot: QtBot, tmp_path) -> None:
     """纯文本操作日志：加时间戳、限行数，颜色按级别取 token。"""
 
@@ -110,6 +136,135 @@ def test_log_console_appends_and_caps(qtbot: QtBot, tmp_path) -> None:
     for index in range(200):
         panel.append(LogRecord(LogLevel.INFO, f"row {index}"))
     assert panel.document().blockCount() <= 120
+
+
+def test_log_console_accepts_plain_text(qtbot: QtBot) -> None:
+    from psi6.ui.log_console import LogConsole
+
+    panel = LogConsole()
+    qtbot.addWidget(panel)
+    panel.append("纯文本一行")
+    assert "纯文本一行" in panel.document().toPlainText()
+
+
+def test_log_console_recolors_when_theme_switches(qtbot: QtBot, tmp_path) -> None:
+    """配色写进了文档，所以主题切换要按存下来的记录整片重画。"""
+
+    from psi6.runtime.app import App
+    from psi6.runtime.logs import LogLevel, LogRecord
+    from psi6.ui.log_console import LogConsole
+
+    app = App("psi6-log-theme", theme="light", config_root=tmp_path)
+    panel = LogConsole()
+    qtbot.addWidget(panel)
+    panel.append(LogRecord(LogLevel.ERROR, "解析失败"))
+    panel.append("纯文本一行")
+    assert app.tokens.color_danger.lower() in panel.toHtml().lower()
+    app.set_theme(app.tokens.overlay({"color_danger": "#00fe00"}))
+    html = panel.toHtml().lower()
+    assert "#00fe00" in html
+    assert "解析失败" in panel.toPlainText()
+    assert "纯文本一行" in panel.toPlainText()
+    app.set_theme("light")
+
+
+def test_sparkline_repaints_when_theme_switches(qtbot: QtBot, tmp_path) -> None:
+    from psi6.runtime.app import App
+    from psi6.ui.sparkline import Sparkline
+
+    app = App("psi6-spark-theme", theme="light", config_root=tmp_path)
+    line = Sparkline([1.0, 3.0, 2.0])
+    qtbot.addWidget(line)
+    line.show()
+    qtbot.waitExposed(line)
+    repaints: list[int] = []
+    original = line.update
+
+    def spy(*args: object) -> None:
+        repaints.append(1)
+        original(*args)
+
+    line.update = spy  # type: ignore[method-assign]
+    app.set_theme("dark")
+    assert repaints
+    app.set_theme("light")
+
+
+def test_icon_paints_at_device_ratio(qtbot: QtBot, monkeypatch) -> None:
+    from PySide6.QtGui import QPixmap
+
+    from psi6.ui import icon as icon_module
+
+    seen: dict[str, object] = {}
+
+    def fake_pixmap(name: str, *, color: str, size: int = 16, ratio: float = 1.0) -> QPixmap:
+        del name, color
+        seen["ratio"] = ratio
+        return QPixmap(size, size)
+
+    def fake_ratio(widget: object = None) -> float:
+        seen["widget"] = widget
+        return 2.0
+
+    monkeypatch.setattr(icon_module, "pixmap_for", fake_pixmap)
+    monkeypatch.setattr(icon_module, "device_ratio", fake_ratio)
+    widget = icon_module.Icon("search")
+    qtbot.addWidget(widget)
+    widget.render(QPixmap(widget.size()))
+    assert seen["ratio"] == 2.0
+    assert seen["widget"] is widget
+
+
+def test_apply_button_icon_refreshes_on_theme_change(qtbot: QtBot, monkeypatch) -> None:
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QIcon
+    from PySide6.QtWidgets import QApplication, QPushButton
+
+    from psi6.ui import icon as icon_module
+
+    button = QPushButton("搜索")
+    qtbot.addWidget(button)
+    icon_module.apply_button_icon(button, "search")
+    calls: list[str] = []
+
+    def fake_icon(name: str, *, color: str, size: int = 16, ratio: float | None = None) -> QIcon:
+        del color, size, ratio
+        calls.append(name)
+        return QIcon()
+
+    monkeypatch.setattr(icon_module, "icon_for", fake_icon)
+    QApplication.sendEvent(button, QEvent(QEvent.Type.StyleChange))
+    assert calls == ["search"]
+    icon_module.apply_button_icon(button, "play")
+    calls.clear()
+    QApplication.sendEvent(button, QEvent(QEvent.Type.DevicePixelRatioChange))
+    assert calls == ["play"]
+
+
+def test_icon_button_asks_for_the_widget_ratio(qtbot: QtBot, monkeypatch) -> None:
+    from PySide6.QtGui import QIcon
+
+    from psi6.ui import icon as icon_module
+
+    seen: dict[str, float | None] = {}
+
+    def fake_icon(
+        name: str,
+        *,
+        color: str,
+        size: int = 16,
+        ratio: float | None = None,
+    ) -> QIcon:
+        del name, color, size
+        seen["ratio"] = ratio
+        return QIcon()
+
+    monkeypatch.setattr(icon_module, "icon_for", fake_icon)
+    monkeypatch.setattr(icon_module, "device_ratio", lambda widget=None: 1.5)
+    button = icon_module.IconButton("play", label="播放")
+    qtbot.addWidget(button)
+    button.refresh()
+    assert seen["ratio"] == 1.5
 
 
 def test_kit_window_builds(qtbot: QtBot, tmp_path) -> None:

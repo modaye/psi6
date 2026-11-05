@@ -53,9 +53,10 @@ class PressScaleFilter(QObject):
             button = getattr(event, "button", lambda: Qt.MouseButton.NoButton)()
             if button == Qt.MouseButton.LeftButton:
                 self._go(self._down)
-        elif kind == QEvent.Type.MouseButtonRelease:
-            self._go(self._rest)
-        elif kind in {QEvent.Type.Leave, QEvent.Type.FocusOut}:
+        elif kind == QEvent.Type.MouseButtonRelease or kind in {
+            QEvent.Type.Leave,
+            QEvent.Type.FocusOut,
+        }:
             self._go(self._rest)
         return False
 

@@ -5,6 +5,10 @@ build/
 dist/
 wheels/
 *.egg-info
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
 
 # Virtual environments
 .venv

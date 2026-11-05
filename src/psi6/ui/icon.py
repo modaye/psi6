@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QSize, Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QPushButton, QSizePolicy, QToolButton, QWidget
 
-from psi6.icons.render import icon_for, pixmap_for
+from psi6.icons.render import device_ratio, icon_for, pixmap_for
 from psi6.theme.paint import create_painter
 from psi6.theme.runtime import token_int
 from psi6.ui.filters import install_press_scale
@@ -19,6 +19,15 @@ _TONE_KEYS = {
     "warning": "psi6ColorWarning",
     "error": "psi6ColorDanger",
 }
+
+_ICON_EVENTS = frozenset(
+    {
+        QEvent.Type.PaletteChange,
+        QEvent.Type.StyleChange,
+        QEvent.Type.ScreenChangeInternal,
+        QEvent.Type.DevicePixelRatioChange,
+    }
+)
 
 
 def token_color(widget: QWidget, *, tone: str = "neutral") -> str:
@@ -38,11 +47,11 @@ def token_color(widget: QWidget, *, tone: str = "neutral") -> str:
 
 
 def _theme_icon_size() -> int:
-    return max(12, token_int("icon_size", 16))
+    return max(12, token_int("icon_size"))
 
 
 def _theme_control_height() -> int:
-    return max(24, token_int("control_height", 32))
+    return max(24, token_int("control_height"))
 
 
 class Icon(QWidget):
@@ -69,6 +78,15 @@ class Icon(QWidget):
         self._name = name
         self.update()
 
+    def set_size(self, size: int | None) -> None:
+        """改图标边长。``None`` 交回 ``icon_size`` token，重新自动跟随主题。"""
+
+        resolved = max(8, int(size)) if size is not None else _theme_icon_size()
+        self._explicit_size = size
+        self._size = resolved
+        self.setFixedSize(resolved, resolved)
+        self.update()
+
     def set_tone(self, tone: Tone | str) -> None:
         self._tone = normalize_tone(tone)
         self.update()
@@ -78,7 +96,7 @@ class Icon(QWidget):
 
     def changeEvent(self, event: QEvent) -> None:  # type: ignore[override]
         super().changeEvent(event)
-        if event.type() in {QEvent.Type.PaletteChange, QEvent.Type.StyleChange}:
+        if event.type() in _ICON_EVENTS:
             self._sync_metrics()
             self.update()
 
@@ -90,10 +108,15 @@ class Icon(QWidget):
             self._size = size
             self.setFixedSize(size, size)
 
-    def paintEvent(self, event) -> None:  # noqa: ANN001
+    def paintEvent(self, event) -> None:
         del event
         color = token_color(self, tone=self._tone)
-        pix = pixmap_for(self._name, color=color, size=self._size)
+        pix = pixmap_for(
+            self._name,
+            color=color,
+            size=self._size,
+            ratio=device_ratio(self),
+        )
         with create_painter(self, clear_pen=False) as painter:
             painter.drawPixmap(0, 0, pix)
 
@@ -137,9 +160,15 @@ class IconButton(QToolButton):
         self._name = name
         self._sync_icon()
 
-    def changeEvent(self, event) -> None:  # noqa: ANN001
-        super().changeEvent(event)
+    def refresh(self) -> None:
+        """主题切换后按当前 token 重算尺寸和颜色。"""
+
         self._sync_metrics()
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() in _ICON_EVENTS:
+            self._sync_metrics()
 
     def _sync_metrics(self) -> None:
         icon = self._explicit_size if self._explicit_size is not None else _theme_icon_size()
@@ -159,12 +188,41 @@ class IconButton(QToolButton):
 
     def _sync_icon(self) -> None:
         color = token_color(self)
-        self.setIcon(icon_for(self._name, color=color, size=self._icon_size))
+        self.setIcon(
+            icon_for(
+                self._name,
+                color=color,
+                size=self._icon_size,
+                ratio=device_ratio(self),
+            )
+        )
 
 
-def apply_button_icon(button: QPushButton, name: str, *, size: int | None = None) -> None:
-    """给普通按钮加上着色图标。主按钮用 ``on_primary``，避免深色图标叠在强调色上。"""
+class _ButtonIconRefresher(QObject):
+    """普通按钮的图标不会自己重画；主题或屏幕比例变化时在这里补。"""
 
+    def __init__(self, button: QPushButton) -> None:
+        super().__init__(button)
+        self._button = button
+        self._name = ""
+        self._size: int | None = None
+
+    def configure(self, name: str, size: int | None) -> None:
+        self._name = name
+        self._size = size
+        self.refresh()
+
+    def refresh(self) -> None:
+        if self._name:
+            _paint_button_icon(self._button, self._name, self._size)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self._button and event.type() in _ICON_EVENTS:
+            self.refresh()
+        return False
+
+
+def _paint_button_icon(button: QPushButton, name: str, size: int | None) -> None:
     extent = size if size is not None else _theme_icon_size()
     if button.objectName() == "psi6Primary":
         app = QApplication.instance()
@@ -175,5 +233,18 @@ def apply_button_icon(button: QPushButton, name: str, *, size: int | None = None
         color = token_color(button, tone="error")
     else:
         color = token_color(button)
-    button.setIcon(icon_for(name, color=color, size=extent))
+    button.setIcon(icon_for(name, color=color, size=extent, ratio=device_ratio(button)))
     button.setIconSize(QSize(extent, extent))
+
+
+def apply_button_icon(button: QPushButton, name: str, *, size: int | None = None) -> None:
+    """给普通按钮加上着色图标。主按钮用 ``on_primary``，避免深色图标叠在强调色上。
+
+    图标会跟随主题、DPI 和屏幕切换重画，调用方只需在换图标时再调一次。
+    """
+
+    refresher = button.findChild(_ButtonIconRefresher)
+    if refresher is None:
+        refresher = _ButtonIconRefresher(button)
+        button.installEventFilter(refresher)
+    refresher.configure(name, size)

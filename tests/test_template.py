@@ -15,9 +15,11 @@ def test_template_uses_public_imports() -> None:
     allowed = {
         "psi6",
         "psi6.runtime.logs",
+        "psi6.spec",
         "psi6.ui.buttons",
         "psi6.ui.log_panel",
         "psi6.ui.status_progress",
+        "psi6.ui.workspace",
         "PySide6.QtWidgets",
     }
     for path in sorted(_TEMPLATE.glob("*.py")):
@@ -26,6 +28,8 @@ def test_template_uses_public_imports() -> None:
             if not isinstance(node, ast.ImportFrom) or not node.module:
                 continue
             if node.module in {"__future__", "job", "theme", "window"}:
+                continue
+            if node.module in sys.stdlib_module_names:
                 continue
             assert node.module in allowed, node.module
             assert "._" not in node.module

@@ -6,6 +6,8 @@ import contextvars
 import threading
 import time
 
+import pytest
+
 from psi6.runtime.logs import LogLevel, LogRecord, capture_task_context
 from psi6.runtime.tasks import TaskRunner, TaskStatus
 
@@ -163,6 +165,100 @@ def test_on_finished_runs_for_every_terminal_state(qtbot) -> None:
     slow.cancel()
     qtbot.waitUntil(lambda: len(finished) == 3, timeout=3000)
     assert sorted(finished) == ["bad", "cancelled", "ok"]
+
+
+def test_on_finished_error_still_releases_the_slot(qtbot) -> None:
+    """收尾回调自己抛错时，任务登记和互斥槽仍然清掉。"""
+
+    runner = TaskRunner()
+
+    def broken() -> None:
+        raise RuntimeError("收尾出错")
+
+    handle = runner.submit(lambda: 1, exclusive="batch", on_finished=broken)
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.active_handles() == []
+    assert runner.is_busy("batch") is False
+
+
+def test_log_callback_error_does_not_stick_the_job(qtbot) -> None:
+    runner = TaskRunner()
+
+    def job(on_log=None) -> int:
+        on_log(LogRecord(LogLevel.INFO, "一行"))
+        return 1
+
+    def broken(_record: object) -> None:
+        raise RuntimeError("日志控件已失效")
+
+    handle = runner.submit(job, on_log=broken)
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.is_busy() is False
+
+
+def test_callbacks_after_widget_deleted_do_not_stick_the_job(qtbot) -> None:
+    """页面先销毁，进度、日志和完成回调再碰到失效控件，任务仍要收尾。"""
+
+    from PySide6.QtWidgets import QLabel
+
+    from psi6.runtime.qt_alive import qt_alive
+
+    label = QLabel("alive")
+    label.deleteLater()
+    qtbot.waitUntil(lambda: not qt_alive(label), timeout=3000)
+    runner = TaskRunner()
+
+    def job(on_progress=None, on_log=None) -> int:
+        on_progress(1, 1, "完成")
+        on_log(LogRecord(LogLevel.INFO, "一行"))
+        return 1
+
+    def touch(*_args: object) -> None:
+        label.setText("still-there")
+
+    handle = runner.submit(job, on_progress=touch, on_log=touch, on_finished=touch)
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.active_handles() == []
+
+
+def test_progress_callback_error_does_not_stick_the_job(qtbot) -> None:
+    runner = TaskRunner()
+
+    def job(on_progress=None) -> int:
+        on_progress(1, 1, "完成")
+        return 1
+
+    def broken(*_args: object) -> None:
+        raise RuntimeError("进度控件已失效")
+
+    handle = runner.submit(job, on_progress=broken)
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.is_busy() is False
+
+
+def test_cancel_while_queued_finishes_without_running(qtbot) -> None:
+    runner = TaskRunner(max_threads=1)
+    started = threading.Event()
+    release = threading.Event()
+    ran: list[str] = []
+
+    def blocker(is_cancelled=None) -> None:
+        del is_cancelled
+        started.set()
+        release.wait(2)
+
+    def later() -> None:
+        ran.append("later")
+
+    first = runner.submit(blocker)
+    qtbot.waitUntil(started.is_set, timeout=3000)
+    second = runner.submit(later)
+    assert second.status is TaskStatus.QUEUED
+    second.cancel()
+    release.set()
+    qtbot.waitUntil(lambda: second.status is TaskStatus.CANCELLED, timeout=3000)
+    qtbot.waitUntil(lambda: first.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert ran == []
 
 
 def test_on_finished_runs_even_when_a_callback_raises(qtbot) -> None:
@@ -397,3 +493,163 @@ def test_progress_coalesces_intermediate_updates(qtbot) -> None:
     assert progress[-1] == (4, 4, "d")
     assert (2, 4, "b") not in progress
     assert (3, 4, "c") not in progress
+
+
+def test_on_finished_can_restart_the_same_slot(qtbot) -> None:
+    """收尾回调里重新提交同一 ``exclusive`` 槽时，旧槽已经释放。"""
+
+    runner = TaskRunner()
+    restarted: list = []
+
+    def start_again() -> None:
+        restarted.append(runner.submit(lambda: 2, exclusive="batch"))
+
+    first = runner.submit(lambda: 1, exclusive="batch", on_finished=start_again)
+    qtbot.waitUntil(lambda: len(restarted) == 1, timeout=3000)
+    assert restarted[0] is not first
+    qtbot.waitUntil(lambda: restarted[0].status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.is_busy("batch") is False
+
+
+def test_logs_written_after_cancel_are_delivered(qtbot) -> None:
+    """取消请求不会吞掉收尾日志；工作函数退出前的记录仍要送到界面。"""
+
+    runner = TaskRunner()
+    logs: list[str] = []
+
+    def job(on_log=None, is_cancelled=None) -> str:
+        on_log(LogRecord(LogLevel.INFO, "before"))
+        while not is_cancelled():
+            time.sleep(0.01)
+        on_log(LogRecord(LogLevel.INFO, "tail after cancel"))
+        return "done"
+
+    handle = runner.submit(
+        job,
+        on_log=lambda record: logs.append(record.message),
+        log_interval_ms=0,
+    )
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.RUNNING, timeout=3000)
+    handle.cancel()
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.CANCELLED, timeout=3000)
+    qtbot.waitUntil(lambda: "tail after cancel" in logs, timeout=3000)
+    assert logs[0] == "before"
+
+
+def test_base_exception_still_finishes_the_job(qtbot) -> None:
+    runner = TaskRunner()
+    errors: list[str] = []
+    finished: list[bool] = []
+
+    def job() -> None:
+        raise SystemExit("退出码 2")
+
+    handle = runner.submit(
+        job,
+        on_failed=errors.append,
+        on_finished=lambda: finished.append(True),
+    )
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.FAILED, timeout=3000)
+    assert errors == ["退出码 2"]
+    assert finished == [True]
+
+
+def test_completed_jobs_do_not_accumulate_signal_objects(qtbot) -> None:
+    from psi6.runtime.tasks import _JobSignals
+
+    runner = TaskRunner()
+    before = len(runner.findChildren(_JobSignals))
+    handles = [runner.submit(lambda: 1) for _ in range(5)]
+    for handle in handles:
+        qtbot.waitUntil(lambda handle=handle: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert len(runner.findChildren(_JobSignals)) == before
+    assert before == 1
+
+
+def test_progress_snapshot_keeps_the_latest_value(qtbot) -> None:
+    runner = TaskRunner()
+    reached = threading.Event()
+    release = threading.Event()
+
+    def job(on_progress=None) -> str:
+        on_progress(1, 4, "a")
+        on_progress(2, 4, "b")
+        reached.set()
+        release.wait(2)
+        on_progress(4, 4, "d")
+        return "ok"
+
+    handle = runner.submit(job, progress_interval_ms=10_000)
+    qtbot.waitUntil(reached.is_set, timeout=3000)
+    assert handle.progress == (2, 4, "b")
+    release.set()
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert handle.progress == (4, 4, "d")
+
+
+def test_started_and_finished_report_the_same_handle(qtbot) -> None:
+    runner = TaskRunner()
+    started: list = []
+    finished: list = []
+    runner.started.connect(started.append)
+    runner.finished.connect(finished.append)
+    handle = runner.submit(lambda: 5)
+    qtbot.waitUntil(lambda: len(finished) == 1, timeout=3000)
+    assert started == [handle]
+    assert finished == [handle]
+    assert handle.result == 5
+    assert handle.status is TaskStatus.SUCCEEDED
+
+
+def test_on_finished_can_receive_the_handle(qtbot) -> None:
+    runner = TaskRunner()
+    seen: list = []
+    handle = runner.submit(lambda: 3, on_finished=lambda finished: seen.append(finished))
+    qtbot.waitUntil(lambda: len(seen) == 1, timeout=3000)
+    assert seen == [handle]
+    assert handle.result == 3
+
+
+def test_submit_after_shutdown_is_rejected(qtbot) -> None:
+    runner = TaskRunner()
+    handle = runner.submit(lambda: 1)
+    qtbot.waitUntil(lambda: handle.status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.shutdown(timeout_ms=1000) is True
+    with pytest.raises(RuntimeError, match="已关闭"):
+        runner.submit(lambda: 2)
+
+
+def test_exclusive_slot_is_taken_once_across_threads(qtbot) -> None:
+    runner = TaskRunner()
+    hold = threading.Event()
+    barrier = threading.Barrier(2)
+    handles: list = []
+
+    def job() -> None:
+        hold.wait(2)
+
+    def submit() -> None:
+        barrier.wait(2)
+        handles.append(runner.submit(job, exclusive="batch"))
+
+    threads = [threading.Thread(target=submit) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(2)
+    assert len(handles) == 2
+    assert handles[0] is handles[1]
+    hold.set()
+    qtbot.waitUntil(lambda: handles[0].status is TaskStatus.SUCCEEDED, timeout=3000)
+    assert runner.is_busy("batch") is False
+
+
+def test_shutdown_drains_queued_finish_callbacks(qtbot) -> None:
+    runner = TaskRunner()
+    finished: list[bool] = []
+    handle = runner.submit(lambda: 1, on_finished=lambda: finished.append(True))
+    assert runner._pool.waitForDone(3000) is True
+    assert runner.active_handles()
+    assert runner.shutdown(timeout_ms=1000) is True
+    assert handle.status is TaskStatus.SUCCEEDED
+    assert finished == [True]

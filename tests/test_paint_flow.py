@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pytestqt.qtbot import QtBot
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtWidgets import QLabel, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.theme.paint import mix_color, rounded_rect_path
 from psi6.ui.filters import DebugEventFilter, PressScaleFilter, install_press_scale

@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import ast
 import importlib
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
 
 from pydantic import BaseModel
-from pytestqt.qtbot import QtBot
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QLabel, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.api import OPTIONAL_UI, STABLE
 from psi6.icons.export import svg_dir
@@ -59,6 +62,33 @@ def test_contrast_note_does_not_reject_theme() -> None:
     assert tokens.color_text == "#f4f4f4"
     assert contrast_notes(tokens)
     assert contrast_notes(Tokens.light()) == []
+
+
+def test_contrast_notes_cover_semantic_pairs() -> None:
+    from psi6.theme.builtin import builtin_themes
+    from psi6.theme.tokens import resolve_tokens
+
+    for theme in (Tokens.light(), Tokens.dark(), *(resolve_tokens(t) for t in builtin_themes())):
+        assert contrast_notes(theme) == [], theme.color_bg
+
+    class BadButton(Theme):
+        color_primary = "#eeeeee"
+        color_on_primary = "#f8f8f8"
+
+    notes = contrast_notes(BadButton().tokens())
+    assert any("主按钮文字" in note for note in notes)
+
+
+def test_contrast_notes_parse_alpha_and_eight_digit_hex() -> None:
+    class Faded(Theme):
+        color_text = "rgba(0, 0, 0, 0.2)"
+
+    assert any("正文与背景" in note for note in contrast_notes(Faded().tokens()))
+
+    class FadedHex(Theme):
+        color_text = "#33000000"
+
+    assert any("正文与背景" in note for note in contrast_notes(FadedHex().tokens()))
 
 
 def test_callback_after_widget_deleted_does_not_fail(qtbot: QtBot) -> None:
@@ -122,7 +152,46 @@ def test_quit_order_is_geometry_runner_lock_tray(qtbot: QtBot, tmp_path: Path, m
     assert order == ["geometry", "runner", "lock", "tray"]
 
 
-def test_file_index_page_separates_close_cancel_and_quit(qtbot: QtBot, tmp_path: Path, monkeypatch) -> None:
+def test_quit_still_releases_resources_when_geometry_save_fails(
+    qtbot: QtBot, tmp_path: Path, monkeypatch, capsys
+) -> None:
+    order: list[str] = []
+    app = App("psi6-quit-isolate", config_root=tmp_path)
+    window = QWidget()
+    qtbot.addWidget(window)
+    app._window = window
+    app._restore_geometry = True
+
+    def boom(*_args: object) -> None:
+        order.append("geometry")
+        raise OSError("目录不可写")
+
+    monkeypatch.setattr("psi6.runtime.app.save_window", boom)
+
+    def shutdown(*_args: object, **_kwargs: object) -> bool:
+        order.append("runner")
+        return False
+
+    app.runner.shutdown = shutdown  # type: ignore[method-assign]
+
+    class Lock:
+        def close(self) -> None:
+            order.append("lock")
+
+    class Tray:
+        def hide(self) -> None:
+            order.append("tray")
+
+    app._instance = Lock()  # type: ignore[assignment]
+    app.tray = Tray()  # type: ignore[assignment]
+    app._on_quit()
+    assert order == ["geometry", "runner", "lock", "tray"]
+    assert "未在时限内结束" in capsys.readouterr().err
+
+
+def test_file_index_page_separates_close_cancel_and_quit(
+    qtbot: QtBot, tmp_path: Path, monkeypatch
+) -> None:
     """关窗口、点取消、应用退出是三件事。页面用文件索引的开始/取消按钮。"""
 
     from PySide6.QtCore import Qt
@@ -132,7 +201,7 @@ def test_file_index_page_separates_close_cancel_and_quit(qtbot: QtBot, tmp_path:
 
     started = threading.Event()
 
-    def block(_params, *, on_progress, on_log, is_cancelled) -> None:  # noqa: ARG001
+    def block(_params, *, on_progress, on_log, is_cancelled) -> None:
         started.set()
         while not is_cancelled():
             time.sleep(0.02)
@@ -215,6 +284,44 @@ def test_missing_tray_does_not_trap_quit(qtbot: QtBot, tmp_path: Path, monkeypat
     app.tray.hide()
 
 
+def test_float_ball_keeps_the_process_without_a_system_tray(
+    qtbot: QtBot, tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr("psi6.ui.tray.QSystemTrayIcon.isSystemTrayAvailable", lambda: False)
+    app = App("psi6-ball", config_root=tmp_path)
+    window = DesktopWindow(title="悬浮球")
+    qtbot.addWidget(window)
+    app.qt_app.setQuitOnLastWindowClosed(True)
+    assert app._open(
+        window,
+        tray=False,
+        float_ball=True,
+        single_instance=False,
+        restore_geometry=False,
+    )
+    assert window.close_to_tray is True
+    assert app.qt_app.quitOnLastWindowClosed() is False
+    assert app.float_ball is not None
+    assert not app.float_ball.isVisible()
+    app.float_ball.show()
+    app._on_quit()
+    assert not app.float_ball.isVisible()
+    assert app.qt_app.quitOnLastWindowClosed() is True
+
+
+def test_tray_quit_restores_last_window_behavior(qtbot: QtBot, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("psi6.ui.tray.QSystemTrayIcon.isSystemTrayAvailable", lambda: True)
+    app = App("psi6-tray-quit", config_root=tmp_path)
+    window = DesktopWindow(title="有托盘")
+    qtbot.addWidget(window)
+    app.qt_app.setQuitOnLastWindowClosed(True)
+    assert app._open(window, tray=True, single_instance=False, restore_geometry=False)
+    assert app.tray is not None and app.tray.available
+    assert app.qt_app.quitOnLastWindowClosed() is False
+    app._on_quit()
+    assert app.qt_app.quitOnLastWindowClosed() is True
+
+
 def test_packaged_icons_follow_the_module(tmp_path: Path, monkeypatch) -> None:
     import psi6.icons.export as export
 
@@ -260,8 +367,45 @@ def test_stable_api_imports() -> None:
             assert all(not item.startswith("psi6.ui") for item in modules)
 
 
+def test_headless_imports_do_not_pull_ui() -> None:
+    """根包、runtime 包和任务模块都不应把 ``psi6.ui`` 拉进来。"""
+
+    check = (
+        "import sys\n"
+        "{line}\n"
+        "loaded = sorted(n for n in sys.modules if n == 'psi6.ui' or n.startswith('psi6.ui.'))\n"
+        "assert not loaded, loaded\n"
+    )
+    for line in ("import psi6", "import psi6.runtime", "import psi6.runtime.tasks"):
+        completed = subprocess.run(
+            [sys.executable, "-c", check.format(line=line)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert completed.returncode == 0, f"{line}: {completed.stderr}"
+
+
+def test_runtime_modules_do_not_import_ui() -> None:
+    """只有组合根 ``runtime.app`` 可以接 UI。"""
+
+    import psi6.runtime
+
+    package = Path(psi6.runtime.__file__).resolve().parent
+    for path in package.rglob("*.py"):
+        if path.name == "app.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            modules: list[str] = []
+            if isinstance(node, ast.ImportFrom) and node.module:
+                modules.append(node.module)
+            if isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            assert all(not item.startswith("psi6.ui") for item in modules), path
+
+
 def test_app_rejects_background_thread(tmp_path: Path) -> None:
-    import threading
 
     errors: list[str] = []
 

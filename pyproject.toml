@@ -37,8 +37,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3",
+    "pytest-cov>=6.0",
     "pytest-qt>=4.4",
     "loguru>=0.7",
+    "mypy>=1.13",
+    "ruff>=0.16",
 ]
 
 [project.urls]
@@ -56,5 +59,35 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 qt_api = "pyside6"
-testpaths = ["tests"]                                                 
+testpaths = ["tests"]
 addopts = "-q"
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src/psi6"]
+check_untyped_defs = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "RUF001",  # 中文标点在注释和文案里是正常写法
+    "RUF002",
+    "RUF003",
+    "RUF022",  # __all__ 按主题分组，不按字母排序
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["SIM117"]
+
+[tool.coverage.run]
+source = ["src/psi6"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

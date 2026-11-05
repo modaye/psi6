@@ -1,15 +1,14 @@
-"""任务页。开始和取消是分开的按钮，进度在状态栏。"""
+"""任务页。开始和取消在工具栏，进度在状态栏。"""
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from job import run_job
 
 from psi6 import App, DesktopWindow, TaskHandle
 from psi6.ui.buttons import ghost_button, primary_button
 from psi6.ui.log_panel import LogPanel
 from psi6.ui.status_progress import StatusProgress
-
-from job import run_job
+from psi6.ui.workspace import Workspace
 
 
 def build(app: App) -> DesktopWindow:
@@ -56,19 +55,11 @@ def build(app: App) -> DesktopWindow:
     start.clicked.connect(start_job)
     cancel.clicked.connect(request_cancel)
 
-    actions = QWidget()
-    row = QHBoxLayout(actions)
-    row.setContentsMargins(0, 0, 0, 0)
-    row.addWidget(start)
-    row.addWidget(cancel)
-    row.addStretch()
-
-    body = QWidget()
-    column = QVBoxLayout(body)
-    column.setContentsMargins(16, 16, 16, 8)
-    column.setSpacing(10)
-    column.addWidget(actions)
-    column.addWidget(log, stretch=1)
-    window.set_body(body)
+    work = Workspace()
+    work.set_crumbs(["任务"])
+    work.toolbar.add_primary(start)
+    work.toolbar.add_secondary(cancel)
+    work.set_pane("center", log)
+    window.set_body(work)
     window.statusBar().showMessage("就绪")
     return window

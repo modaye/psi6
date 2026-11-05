@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pytestqt.qtbot import QtBot
 from PySide6.QtWidgets import QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.ui import dialogs
 

@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Protocol
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal, Slot
 from PySide6.QtWidgets import QStatusBar
 
-from psi6.ui.toast import ToastHost
+from psi6.runtime.qt_alive import qt_alive
+
+
+class ToastSink(Protocol):
+    """``Notifier`` 需要的最小 Toast 接口。具体控件由 ``runtime.app`` 接上。"""
+
+    def push(
+        self,
+        message: str,
+        *,
+        tone: str = "info",
+        timeout_ms: int = 6000,
+    ) -> object | None: ...
 
 
 class NoticeLevel(StrEnum):
@@ -27,19 +40,22 @@ class Notifier(QObject):
     """
 
     posted = Signal(str, str)
+    _deliver = Signal(str, str, int, bool)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._status: QStatusBar | None = None
-        self._toasts: ToastHost | None = None
+        self._toasts: ToastSink | None = None
         self._last: tuple[str, str] | None = None
+        # 界面线程直连，工作线程自动排队。两边都能调用 ``post``。
+        self._deliver.connect(self._deliver_gui, Qt.ConnectionType.AutoConnection)
 
     def bind_status_bar(self, bar: QStatusBar | None) -> None:
         """把通知映射到主窗口状态栏。"""
 
         self._status = bar
 
-    def bind_toast_host(self, host: ToastHost | None) -> None:
+    def bind_toast_host(self, host: ToastSink | None) -> None:
         """把成功/警告/错误映射到窗口右上角 Toast。"""
 
         self._toasts = host
@@ -65,12 +81,16 @@ class Notifier(QObject):
 
         kind = NoticeLevel(str(level))
         self._last = (kind.value, message)
-        self.posted.emit(kind.value, message)
-        if self._status is not None:
-            self._status.showMessage(message, timeout_ms)
         show_toast = kind is not NoticeLevel.INFO if toast is None else toast
-        if show_toast and self._toasts is not None:
-            self._toasts.push(message, tone=kind.value, timeout_ms=timeout_ms)
+        self._deliver.emit(kind.value, message, timeout_ms, bool(show_toast))
+
+    @Slot(str, str, int, bool)
+    def _deliver_gui(self, level: str, message: str, timeout_ms: int, show_toast: bool) -> None:
+        self.posted.emit(level, message)
+        if self._status is not None and qt_alive(self._status):
+            self._status.showMessage(message, timeout_ms)
+        if show_toast and self._toasts is not None and qt_alive(self._toasts):
+            self._toasts.push(message, tone=level, timeout_ms=timeout_ms)
 
     def info(self, message: str) -> None:
         self.post(NoticeLevel.INFO, message)

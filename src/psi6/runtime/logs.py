@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import atexit
 import contextvars
+import json
 import logging
+import queue
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 
 
 class LogLevel(StrEnum):
@@ -99,3 +104,81 @@ def task_log(message: str, *, level: LogLevel = LogLevel.INFO, detail: str = "")
         logging.getLogger("psi6.task").log(_STDLIB_LEVELS[level], record.message)
         return
     sink(record)
+
+
+class LogJournal:
+    """把 ``LogRecord`` 追加成 JSON 行。
+
+    ``write`` 只把记录放进队列，真正写盘在后台线程，因此界面线程调用也不会卡。
+    进程正常退出时会尝试收尾；任务结束或窗口关闭时仍应调用 ``close``，
+    这样最后几行会在返回前落盘。
+    """
+
+    def __init__(self, path: Path) -> None:
+        self._path = Path(path)
+        self._queue: queue.Queue[LogRecord | None] = queue.Queue()
+        self._lock = threading.Lock()
+        self._closed = False
+        self._thread = threading.Thread(
+            target=self._drain,
+            name="psi6-log-journal",
+            daemon=True,
+        )
+        self._thread.start()
+        atexit.register(self.close)
+
+    def write(self, record: LogRecord) -> None:
+        """排队一条记录。已经 ``close`` 之后再写会被丢掉。"""
+
+        with self._lock:
+            if self._closed:
+                return
+            self._queue.put(record)
+
+    def __call__(self, record: LogRecord) -> None:
+        self.write(record)
+
+    def close(self, timeout: float = 2.0) -> None:
+        """把队列里剩下的记录写完并停掉后台线程。可以重复调用。"""
+
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            self._queue.put(None)
+        atexit.unregister(self.close)
+        self._thread.join(timeout)
+
+    def _drain(self) -> None:
+        handle = None
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            handle = self._path.open("a", encoding="utf-8")
+        except OSError:
+            _logger.warning("无法打开日志文件 %s", self._path, exc_info=True)
+        try:
+            while True:
+                item = self._queue.get()
+                if item is None:
+                    if handle is not None:
+                        handle.flush()
+                    return
+                if handle is None:
+                    continue
+                try:
+                    payload = {
+                        "level": item.level.value,
+                        "message": item.message,
+                        "detail": item.detail,
+                        "extra": dict(item.extra),
+                    }
+                    handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+                    handle.flush()
+                except Exception:
+                    _logger.warning("写入日志失败", exc_info=True)
+        finally:
+            if handle is not None:
+                handle.close()
+
+
+_logger = logging.getLogger("psi6.runtime.logs")

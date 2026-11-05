@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QPushButton, QWidget
 
+from psi6.theme.apply import apply_psi6_button_style
 from psi6.ui._tone import set_tone
 from psi6.ui.flow_layout import FlowLayout
 from psi6.ui.tone import Tone
@@ -25,6 +26,7 @@ class Tag(QPushButton):
     ) -> None:
         super().__init__(text, parent)
         self.setObjectName("psi6Tag")
+        apply_psi6_button_style(self)
         self.setCheckable(checkable)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -44,7 +46,10 @@ class TagRow(QWidget):
         self.hide()
 
     def set_labels(self, labels: Sequence[str], *, tone: Tone | str = "info") -> None:
-        """重建标签。重复项会去掉，最多 12 个。"""
+        """重建标签。重复项会去掉，最多 12 个。
+
+        标签行应已经放进布局。还没有父控件时只建好标签并保持隐藏。
+        """
 
         unique: list[str] = []
         seen: set[str] = set()
@@ -62,10 +67,11 @@ class TagRow(QWidget):
             tag.clicked.connect(lambda checked, value=text: self._on_clicked(value, checked))
             self._flow.addWidget(tag)
             self._tags.append(tag)
-        if self._tags:
-            self.show()
-        else:
+        if not self._tags or self.parentWidget() is None:
+            # 空列表保持隐藏。还没进布局时也不 show()，初始显隐由调用方放进布局后再决定。
             self.hide()
+        else:
+            self.show()
 
     def selected(self) -> str:
         """当前选中的标签文本；没有选中则为空串。"""

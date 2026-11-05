@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QSizePolicy, QWidget
 
+from psi6.theme.apply import apply_psi6_button_style
+
 
 class SegmentedControl(QWidget):
     """N 段互斥。``changed`` 给出 0-based 下标。"""
@@ -20,7 +22,8 @@ class SegmentedControl(QWidget):
             raise ValueError("SegmentedControl 至少需要 2 段文案")
         self.setObjectName("psi6Segmented")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        # 水平 Fixed：分段开关贴内容宽度，不随竖向布局被拉满整行
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         row = QHBoxLayout(self)
@@ -30,6 +33,7 @@ class SegmentedControl(QWidget):
         for index, text in enumerate(texts):
             button = QPushButton(text)
             button.setObjectName("psi6Segment")
+            apply_psi6_button_style(button)
             button.setCheckable(True)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setFocusPolicy(Qt.FocusPolicy.TabFocus)

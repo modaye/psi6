@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QLineEdit, QWidget
 from pytestqt.qtbot import QtBot
 
 from psi6.ui.file_input import FileInput, FolderInput, PathState
@@ -60,3 +60,30 @@ def test_folder_input(qtbot: QtBot, tmp_path: Path) -> None:
     assert widget.is_valid() is True
     widget.set_path(tmp_path / "nope")
     assert widget.is_valid() is False
+
+
+def test_invalid_state_refresh_is_debounced(qtbot: QtBot, tmp_path: Path) -> None:
+    widget = FileInput()
+    qtbot.addWidget(widget)
+    picker = widget.findChild(QWidget, "psi6PathPicker")
+    assert picker is not None
+    widget.set_path(tmp_path / "missing.txt")
+    assert widget.state is PathState.INVALID
+    assert picker.property("invalid") is False
+    qtbot.waitUntil(lambda: picker.property("invalid") is True, timeout=1000)
+
+
+def test_paths_with_semicolons_are_kept(qtbot: QtBot, tmp_path: Path) -> None:
+    tricky = tmp_path / "a;b.txt"
+    tricky.write_text("x", encoding="utf-8")
+    plain = tmp_path / "plain.txt"
+    plain.write_text("x", encoding="utf-8")
+    widget = FileInput(multiple=True)
+    qtbot.addWidget(widget)
+    widget.set_paths([plain, tricky])
+    assert widget.paths() == [plain, tricky]
+    assert widget.is_valid() is True
+    single = FileInput()
+    qtbot.addWidget(single)
+    single.set_path(tricky)
+    assert single.paths() == [tricky]

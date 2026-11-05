@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from pytestqt.qtbot import QtBot
 from PySide6.QtWidgets import QMainWindow, QStatusBar, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.runtime.app import App
 from psi6.runtime.notifications import NoticeLevel, Notifier
@@ -70,6 +71,19 @@ def test_notifier_info_skips_toast_success_shows(qtbot: QtBot) -> None:
     assert host.findChildren(ToastCard)
 
 
+def test_notifier_marshals_worker_thread_updates(qtbot: QtBot) -> None:
+    window = QMainWindow()
+    bar = QStatusBar(window)
+    window.setStatusBar(bar)
+    qtbot.addWidget(window)
+    notifier = Notifier()
+    notifier.bind_status_bar(bar)
+    thread = threading.Thread(target=lambda: notifier.warning("来自后台"), daemon=True)
+    thread.start()
+    qtbot.waitUntil(lambda: bar.currentMessage() == "来自后台", timeout=3000)
+    assert notifier.last == (NoticeLevel.WARNING.value, "来自后台")
+
+
 def test_window_geometry_roundtrip(qtbot: QtBot, tmp_path: Path) -> None:
     from psi6.runtime.config import ConfigStore
     from psi6.runtime.window_state import restore_window, save_window
@@ -129,4 +143,3 @@ def test_quit_writes_geometry_only_when_requested(qtbot: QtBot, tmp_path: Path) 
     app._restore_geometry = True
     app._on_quit()
     assert (tmp_path / "psi6-no-geo" / "window.json").is_file()
-

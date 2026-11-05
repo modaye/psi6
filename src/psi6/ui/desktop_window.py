@@ -149,18 +149,24 @@ class DesktopWindow(QMainWindow):
     def set_body(self, widget: QWidget) -> None:
         """把业务内容放到标题栏下方。"""
 
-        while self._body_layout.count():
-            item = self._body_layout.takeAt(0)
-            child = item.widget()
-            if child is not None:
-                child.hide()
-                child.deleteLater()
+        self._clear_body()
         self._body_layout.addWidget(widget)
         if self._frameless:
             self._raise_grips()
 
+    def _clear_body(self) -> None:
+        while self._body_layout.count():
+            item = self._body_layout.takeAt(0)
+            if item is None:
+                break
+            child = item.widget()
+            if child is not None:
+                child.hide()
+                child.deleteLater()
+
     def setCentralWidget(self, widget: QWidget | None) -> None:  # type: ignore[override]
         if widget is None:
+            self._clear_body()
             return
         self.set_body(widget)
 
@@ -236,12 +242,17 @@ class DesktopWindow(QMainWindow):
             self._sync_shape()
             self._layout_grips()
 
-    def closeEvent(self, event) -> None:  # noqa: ANN001
+    def closeEvent(self, event) -> None:
         if self.close_to_tray and not self._force_quit:
             event.ignore()
             self.hide()
             return
         super().closeEvent(event)
+
+    def sync_shape(self) -> None:
+        """主题切换后重算圆角裁切。``apply_theme`` 通过这个公开方法调用。"""
+
+        self._sync_shape()
 
     def _sync_shape(self) -> None:
         """圆角裁切与 DWM 偏好。最大化时取消，避免贴边露缝。"""
@@ -255,7 +266,13 @@ class DesktopWindow(QMainWindow):
             self.setMask(round_mask(self.rect(), radius))
         else:
             self.clearMask()
-        for widget in (self._chrome, self.title_bar, self._status):
+        for widget in (
+            getattr(self, "_chrome", None),
+            self.title_bar,
+            getattr(self, "_status", None),
+        ):
+            if widget is None:
+                continue
             widget.setProperty("rounded", rounded)
             style = widget.style()
             style.unpolish(widget)
@@ -266,7 +283,8 @@ class DesktopWindow(QMainWindow):
         if not hasattr(self, "_grips"):
             return
         visible = not (self.isMaximized() or self.isFullScreen())
-        blocked = self.title_bar.controls_rect_in(self) if visible else None
+        title_bar = self.title_bar
+        blocked = title_bar.controls_rect_in(self) if visible and title_bar is not None else None
         rects = grip_rects(self.size(), thickness=_EDGE, blocked=blocked) if visible else {}
         for edge, grip in self._grips.items():
             rect = rects.get(edge)

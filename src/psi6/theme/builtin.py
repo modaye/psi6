@@ -116,7 +116,7 @@ class Brass(Theme):
     color_border = "#d4cbb8"
     color_primary = "#6b542e"
     color_on_primary = "#fbf7ee"
-    color_focus = "#6b542e"
+    color_focus = "#7d5f33"
     color_sidebar = "#e9e1d2"
     color_sidebar_text = "#5a5144"
     color_user_bubble = "#6b542e"
@@ -129,3 +129,9 @@ class Compact(Theme):
     name = "compact"
     base = "light"
     style = "compact"
+
+
+def builtin_themes() -> tuple[type[Theme], ...]:
+    """随包提供的主题类。``App`` 的注册表和主题选择器用它，按 ``name`` 取。"""
+
+    return (ModernDark, CompactDark, Mono, Obsidian, Pine, Brass, Compact)

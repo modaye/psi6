@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import QByteArray, QRectF, Qt
 from PySide6.QtGui import QIcon, QImage, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
 from psi6.icons.registry import svg_for
 
-_CACHE: dict[tuple[str, int, str], QPixmap] = {}
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import QWidget
+
+_CACHE: dict[tuple[str, int, str, float], QPixmap] = {}
 
 
 def clear_icon_cache() -> None:
@@ -24,13 +29,17 @@ def raster_px(logical: int, ratio: float) -> int:
     return max(extent, round(extent * max(1.0, float(ratio))))
 
 
-def device_ratio() -> float:
-    """当前应用的设备像素比。没有应用时按 1。"""
+def device_ratio(widget: QWidget | None = None) -> float:
+    """控件所在屏幕的设备像素比。窗口跨屏时按控件读，没有控件时按应用读。"""
 
+    if widget is not None:
+        ratio = float(widget.devicePixelRatioF())
+        if ratio > 0:
+            return max(1.0, ratio)
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance()
-    if app is None:
+    if not isinstance(app, QApplication):
         return 1.0
     return max(1.0, float(app.devicePixelRatio()))
 
@@ -65,4 +74,6 @@ def pixmap_for(name: str, *, color: str, size: int = 16, ratio: float = 1.0) -> 
 def icon_for(name: str, *, color: str, size: int = 16, ratio: float | None = None) -> QIcon:
     """供按钮 ``setIcon`` 使用。未给 ``ratio`` 时读取当前应用的设备像素比。"""
 
-    return QIcon(pixmap_for(name, color=color, size=size, ratio=device_ratio() if ratio is None else ratio))
+    return QIcon(
+        pixmap_for(name, color=color, size=size, ratio=device_ratio() if ratio is None else ratio)
+    )

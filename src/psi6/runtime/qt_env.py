@@ -80,7 +80,7 @@ def install_qt_message_filter() -> None:
         return
     from PySide6.QtCore import qInstallMessageHandler
 
-    def handler(mode, context, message: str) -> None:  # noqa: ANN001
+    def handler(mode, context, message: str) -> None:
         del mode, context
         if any(snippet in message for snippet in _FILTER_SNIPPETS):
             return

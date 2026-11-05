@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 
@@ -11,6 +12,8 @@ class ActionBar(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("psi6ActionBar")
+        # Plain QWidget subclass: QSS background/border only paint with this flag set.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self._row = QHBoxLayout(self)
         self._row.setContentsMargins(0, 0, 0, 0)
         self._row.setSpacing(8)

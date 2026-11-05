@@ -6,7 +6,7 @@ from dataclasses import fields
 
 from PySide6.QtWidgets import QApplication
 
-from psi6.theme.tokens import DEFAULT_TOKENS, Tokens
+from psi6.theme.tokens import DEFAULT_TOKENS, Tokens, style_metrics
 
 
 def property_name(field: str) -> str:
@@ -51,6 +51,18 @@ def token_int(name: str, default: int | None = None) -> int:
     if isinstance(value, int):
         return value
     return fallback
+
+
+def metrics_scale() -> float:
+    """当前控件高度相对 ``modern`` 预设的比例，用来缩放没有对应 token 的尺寸。
+
+    ``modern`` 为 ``1.0``，``compact`` 约 ``0.83``；自定义组件里那些写死的
+    留白、图标边长可以按这个比例缩放，切密度时不必再逐个定义新 token。
+    比例钳在 ``0.5`` ~ ``2.0``，异常主题不会把布局压塌或撑爆。
+    """
+
+    modern = style_metrics("modern")["control_height"]
+    return max(0.5, min(2.0, token_int("control_height", modern) / max(1, modern)))
 
 
 def token_ms(speed: str = "fast") -> int:

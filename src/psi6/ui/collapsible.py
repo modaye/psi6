@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 
+from psi6.theme.apply import apply_psi6_button_style
 from psi6.ui.icon import apply_button_icon
 
 
@@ -29,6 +30,7 @@ class Collapsible(QWidget):
 
         self._header = QPushButton()
         self._header.setObjectName("psi6CollapsibleHeader")
+        apply_psi6_button_style(self._header)
         self._header.setCheckable(True)
         self._header.toggled.connect(self._on_toggled)
         root.addWidget(self._header)

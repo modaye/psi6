@@ -6,9 +6,11 @@ alwaysApply: true
 在本仓库或基于 psi6 写桌面工具时，遵循 `skills/psi6-desktop/SKILL.md`。
 
 - 核心从 `psi6` 导入：`App`、`TaskRunner`、`Theme`、`DesktopWindow` / `TrayIcon`。控件从 `psi6.ui` 导入。`DesktopWindow` 默认用 Qt 标题栏，`frameless=True` 才自绘标题栏。
-- 表单 `pydantic_form` / `pydantic_settings`；路径 `FileInput` / `FolderInput`；结果 `DataTable`；过程 `LogPanel`；短句 `Notifier`。
-- 任务进行中用 `DataTable.set_busy`。进度没有指定位置时用 `StatusProgress(window.statusBar())`。同槽 `exclusive=` / `runner.is_busy`。成功/失败用 `Notifier`（会弹 Toast）。`info` 只进状态栏。
-- 主题用 `App(..., theme="light"|"dark"|"auto"|MyTheme)`。`MyTheme` 子类化 `psi6.theme.Theme`，类属性必须是 `Tokens` 字段。图标放主题模块旁边的 `icons/*.svg`。禁止在 UI 线程做 IO；禁止业务里直接 `QFileDialog` / 手写 `QThread` / 散落 QSS。
-- `App.run` 默认多开、不写窗口位置。需要时传 `single_instance=True`、`restore_geometry=True`。
-- 参考任务签名：`src/psi6/jobs/file_index.py`（示范 `run_job`，不是业务模板）。新项目复制 `skills/psi6-desktop/template/`，业务只写 `job.py`，用 `python app.py --check` 核对。关窗口、点取消、应用退出是三件事。组件预览：`python -m psi6 kit`。
+- 表单 `pydantic_form` / `pydantic_settings`，回填用 `form.restore`。路径 `FileInput` / `FolderInput`：保存接 `path_edited`，即时校验用 `path_changed`，清除按钮默认开着。结果 `DataTable`；过程用 `LogPanel`（表格）或 `LogConsole`（`logger.addHandler(console.handler())`）；短句 `Notifier`。
+- 任务进行中用 `DataTable.set_busy`。进度没有指定位置时用 `StatusProgress(window.statusBar())`。同槽 `exclusive=` / `runner.is_busy`，被挡下走 `on_busy`，按钮恢复走 `on_finished`。`runner.started` / `runner.finished` 观察任务，`handle.progress` 是最新进度。深层日志用 `task_log`；任务内再开线程用 `capture_task_context().run(fn)`。成功/失败用 `Notifier`（会弹 Toast）。`info` 只进状态栏。
+- 配置分三处：进程和环境变量用应用自己的 pydantic-settings；程序参数用 `load_config` / `save_config`；上次路径用 `remember_path` / `recalled_path`。窗口几何只有 `restore_geometry=True` 才读写；主题只有 `remember_theme=True` 才写 `theme.json`。
+- 主题用 `App(..., theme="light"|"dark"|"auto"|主题名|MyTheme)`。`MyTheme` 子类化 `psi6.theme.Theme`，类属性必须是 `Tokens` 字段。`base="auto"` 跟随系统浅色/深色，可写 `light` / `dark` 两个变体。切换用 `set_theme`，`app.theme_name` 读当前标识。状态色用 `color_pressed` / `color_selected` / `color_primary_hover` 等 token，留空自动推导，不要自己混色。控件描边用 `color_control_border`，留空时等于 `color_border`。检查主题用 `python -m psi6 theme <名称> --check`。图标放主题模块旁边的 `icons/*.svg`。禁止在 UI 线程做 IO；禁止业务里直接 `QFileDialog` / 手写 `QThread` / 散落 QSS。
+- `App.run` 默认多开、不写窗口位置。需要时传 `single_instance=True`、`restore_geometry=True`。`tray=True` 且系统有托盘时，关窗口隐藏；`float_ball=True` 留一个可拖动的圆标，关窗口同样隐藏，不依赖系统托盘。两者都没有时，关最后一个窗口退出。
+- 参考任务签名：`src/psi6/jobs/file_index.py`（示范 `run_job`，不是业务模板）。新项目复制 `skills/psi6-desktop/template/`，业务只写 `job.py`，用 `python app.py --check` 核对。关窗口、点取消、应用退出是三件事。组件预览：`python -m psi6 kit`。选控件用 `python -m psi6 catalog --json`；业务代码用 `python -m psi6 check <目录>` 检查是否绕开框架。
+- 一页内部用 `Workspace` 放工具栏、面包屑和左右栏。侧栏换页仍用 `AppShell`。`DataTable.sort_by` 或点击表头排序。表单 `group` 出分组，`search` 让选项可输入筛选。色板尚未冻结；审定完成前不加整套新皮肤。树表、图表、Markdown 仍随后做。快捷键用 `ShortcutBook`，撤销用 `EditHistory`，旧配置用 `ConfigMigrations`，任务日志落盘用 `LogJournal`。结果表要拖动换序时 `DataTable.set_reorderable(True)`。
 - 改控件用构造参数或子类钩子；不要在本仓库加 Excel/PDF 行业模板，不要为某个产品堆叠首页主键。

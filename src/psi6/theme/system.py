@@ -10,6 +10,6 @@ def system_prefers_dark() -> bool:
     from PySide6.QtGui import QGuiApplication
 
     app = QGuiApplication.instance()
-    if app is None:
+    if not isinstance(app, QGuiApplication):
         return False
     return app.styleHints().colorScheme() == Qt.ColorScheme.Dark

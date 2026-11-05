@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pytestqt.qtbot import QtBot
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.ui.banner import Banner
 from psi6.ui.buttons import ghost_button, link_button, text_button
@@ -59,11 +59,17 @@ def test_segmented_requires_two_labels() -> None:
 
 
 def test_banner_actions_fire(qtbot: QtBot) -> None:
+    host = QWidget()
+    qtbot.addWidget(host)
+    layout = QVBoxLayout(host)
     banner = Banner()
-    qtbot.addWidget(banner)
+    layout.addWidget(banner)
     hits: list[str] = []
     banner.set_notice("缺解释器", tone="warning", actions=[("排除", lambda: hits.append("skip"))])
+    host.show()
+    qtbot.waitExposed(host)
     assert banner.isVisible()
+    assert banner.windowHandle() is None or banner.windowHandle() is host.windowHandle()
     assert len(banner._actions) == 1
     banner._actions[0].click()
     assert hits == ["skip"]

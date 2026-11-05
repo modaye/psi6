@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -39,14 +40,16 @@ _LEVEL_TEXT = {
 
 
 class LogPanel(QWidget):
-    """可过滤、可导出的操作日志表。"""
+    """可过滤、可导出的操作日志表。工作线程调用 ``append`` 会排队回界面线程。"""
 
     COLUMNS = ("序号", "级别", "消息", "详情")
+    _incoming = Signal(object)
 
     def __init__(self, parent: QWidget | None = None, *, max_entries: int = 2000) -> None:
         super().__init__(parent)
         self._entries: list[LogRecord] = []
         self._max_entries = max(1, int(max_entries))
+        self._incoming.connect(self._append_now, Qt.ConnectionType.AutoConnection)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         toolbar = QHBoxLayout()
@@ -82,6 +85,9 @@ class LogPanel(QWidget):
     def append(self, record: LogRecord) -> None:
         """追加一条。超过 ``max_entries`` 时丢掉最旧的记录。"""
 
+        self._incoming.emit(record)
+
+    def _append_now(self, record: LogRecord) -> None:
         self._entries.append(record)
         dropped = len(self._entries) - self._max_entries
         if dropped > 0:

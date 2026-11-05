@@ -158,7 +158,11 @@ def grip_rects(
             right = rects["right"]
             right.setTop(max(right.top(), blocked.bottom()))
             rects["right"] = right
-    return {name: rect for name, rect in rects.items() if rect.isValid() and rect.width() > 0 and rect.height() > 0}
+    return {
+        name: rect
+        for name, rect in rects.items()
+        if rect.isValid() and rect.width() > 0 and rect.height() > 0
+    }
 
 
 def grab_rounded(widget: QWidget, *, radius: int | None = None) -> QPixmap:

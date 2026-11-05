@@ -13,7 +13,7 @@ _FILE = "window.json"
 def save_window(window: QWidget, store: ConfigStore, app_name: str) -> None:
     """把 ``saveGeometry`` 写到用户目录。"""
 
-    blob = bytes(window.saveGeometry().toBase64()).decode("ascii")
+    blob = bytes(window.saveGeometry().toBase64().data()).decode("ascii")
     store.save_data(
         app_name,
         _FILE,

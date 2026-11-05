@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from pytestqt.qtbot import QtBot
@@ -33,3 +34,15 @@ def test_log_panel_counts_and_export(qtbot: QtBot, tmp_path: Path) -> None:
     text = target.read_text(encoding="utf-8-sig")
     assert "ok" in text
     assert "bad" in text
+
+
+def test_worker_thread_append_is_queued(qtbot: QtBot) -> None:
+    panel = LogPanel()
+    qtbot.addWidget(panel)
+    thread = threading.Thread(
+        target=lambda: panel.append(LogRecord(LogLevel.INFO, "后台一行")),
+        daemon=True,
+    )
+    thread.start()
+    qtbot.waitUntil(lambda: panel._table.rowCount() == 1, timeout=3000)
+    assert panel._table.item(0, 2).text() == "后台一行"

@@ -2,44 +2,35 @@
 
 from __future__ import annotations
 
+from psi6.theme.colors import contrast_ratio
 from psi6.theme.tokens import Tokens
+
+# (标签, 前景字段, 背景字段, WCAG 阈值)。文字按正文级 4.5，焦点框按非文字 3.0。
+_PAIRS: tuple[tuple[str, str, str, float], ...] = (
+    ("正文与背景", "color_text", "color_bg", 4.5),
+    ("正文与卡片", "color_text", "color_surface", 4.5),
+    ("正文与浮层", "color_text", "color_elevated", 4.5),
+    ("辅助文字与背景", "color_muted", "color_bg", 4.5),
+    ("辅助文字与卡片", "color_muted", "color_surface", 4.5),
+    ("主按钮文字", "color_on_primary", "color_primary", 4.5),
+    ("危险按钮文字", "color_on_primary", "color_danger", 4.5),
+    ("成功色文字", "color_on_primary", "color_success", 4.5),
+    ("警告色文字", "color_on_primary", "color_warning", 4.5),
+    ("信息色文字", "color_on_primary", "color_info", 4.5),
+    ("侧栏文字", "color_sidebar_text", "color_sidebar", 4.5),
+    ("用户气泡文字", "color_user_on_bubble", "color_user_bubble", 4.5),
+    ("焦点框与背景", "color_focus", "color_bg", 3.0),
+    ("焦点框与卡片", "color_focus", "color_surface", 3.0),
+)
 
 
 def contrast_notes(tokens: Tokens) -> list[str]:
-    """正文与背景对比度低于 4.5 时返回说明。无法解析的颜色跳过。"""
+    """逐对检查语义文字、焦点框与底色。低于阈值时返回说明；无法解析的颜色跳过。"""
 
-    ratio = _contrast(tokens.color_text, tokens.color_bg)
-    if ratio is None or ratio >= 4.5:
-        return []
-    return [f"正文与背景对比度 {ratio:.1f}，低于 4.5。这是诊断，不阻止加载主题。"]
-
-
-def _contrast(foreground: str, background: str) -> float | None:
-    fore = _luminance(foreground)
-    back = _luminance(background)
-    if fore is None or back is None:
-        return None
-    lighter, darker = max(fore, back), min(fore, back)
-    return (lighter + 0.05) / (darker + 0.05)
-
-
-def _luminance(color: str) -> float | None:
-    text = color.strip()
-    if not text.startswith("#") or len(text) not in {4, 7}:
-        return None
-    if len(text) == 4:
-        text = "#" + "".join(ch * 2 for ch in text[1:])
-    try:
-        red = int(text[1:3], 16) / 255
-        green = int(text[3:5], 16) / 255
-        blue = int(text[5:7], 16) / 255
-    except ValueError:
-        return None
-    channels = tuple(_channel(item) for item in (red, green, blue))
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-
-
-def _channel(value: float) -> float:
-    if value <= 0.04045:
-        return value / 12.92
-    return ((value + 0.055) / 1.055) ** 2.4
+    notes: list[str] = []
+    for label, foreground, background, threshold in _PAIRS:
+        ratio = contrast_ratio(getattr(tokens, foreground), getattr(tokens, background))
+        if ratio is None or ratio >= threshold:
+            continue
+        notes.append(f"{label}对比度 {ratio:.1f}，低于 {threshold:g}。这是诊断，不阻止加载主题。")
+    return notes

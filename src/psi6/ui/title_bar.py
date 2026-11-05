@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-from psi6.theme.runtime import token_int
+from psi6.theme.runtime import token_color, token_int
 from psi6.ui.icon import Icon, IconButton
 
 
@@ -72,6 +72,16 @@ class TitleBar(QWidget):
         super().changeEvent(event)
         if event.type() in {QEvent.Type.PaletteChange, QEvent.Type.StyleChange}:
             self._sync_metrics()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # type: ignore[override]
+        if watched is self._close:
+            if event.type() == QEvent.Type.HoverEnter:
+                self._close.setProperty("psi6IconColor", token_color("on_primary"))
+                self._close.refresh()
+            elif event.type() == QEvent.Type.HoverLeave:
+                self._close.setProperty("psi6IconColor", "")
+                self._close.refresh()
+        return super().eventFilter(watched, event)
 
     def set_title(self, title: str) -> None:
         self._title.setText(title)

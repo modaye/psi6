@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pytestqt.qtbot import QtBot
 from PySide6.QtWidgets import QPushButton, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.runtime.logs import LogLevel, LogRecord
 from psi6.ui.chat import Composer, MessageList
@@ -66,6 +66,23 @@ def test_playlist_has_no_marker_column(qtbot: QtBot) -> None:
     assert playlist._table.visible_rows()[0]["title"] == "Night Shift"
 
 
+def test_playlist_activates_the_clicked_duplicate(qtbot: QtBot) -> None:
+    playlist = Playlist()
+    qtbot.addWidget(playlist)
+    playlist.set_tracks(
+        [
+            {"title": "Same", "artist": "Harbor", "time": "2:00"},
+            {"title": "Same", "artist": "Harbor", "time": "4:00"},
+        ]
+    )
+    playlist.set_current(1)
+    seen: list[int] = []
+    playlist.track_activated.connect(seen.append)
+    playlist._table.select_row(0)
+    assert seen == [0]
+    assert playlist.current_index() == 0
+
+
 def test_diff_view_is_a_card(qtbot: QtBot) -> None:
     view = DiffView()
     qtbot.addWidget(view)
@@ -103,6 +120,10 @@ def test_toast_stack_does_not_compress_cards(qtbot: QtBot) -> None:
     host.push("扫描完成，结果已写入表格。", timeout_ms=0)
     host.push("第三份通知也要完整显示关闭按钮，不能被挤成一条线。", timeout_ms=0)
     qtbot.waitUntil(lambda: host.isVisible())
+    # 卡片进出场是高度从 0 展开的动画，断言前等展开完成（reduced_motion 下立即满高）。
+    qtbot.waitUntil(
+        lambda: len(host._cards) == 3 and all(card.height() >= 36 for card in host._cards)
+    )
     assert len(host._cards) == 3
     assert host.height() >= sum(card.minimumHeight() for card in host._cards)
     for index, card in enumerate(host._cards):
@@ -111,7 +132,7 @@ def test_toast_stack_does_not_compress_cards(qtbot: QtBot) -> None:
         assert card._close.height() == 28
         assert card._close.width() == 28
         assert not card._close.isHidden()
-    for upper, lower in zip(host._cards, host._cards[1:]):
+    for upper, lower in zip(host._cards, host._cards[1:], strict=False):
         assert upper.geometry().bottom() <= lower.geometry().top()
 
 

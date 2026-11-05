@@ -16,10 +16,10 @@ from PySide6.QtWidgets import (
 )
 
 from psi6.theme.runtime import token_int
+from psi6.ui._tone import set_tone
 from psi6.ui.buttons import primary_button
 from psi6.ui.empty_state import EmptyState
 from psi6.ui.icon import Icon, apply_button_icon
-from psi6.ui._tone import set_tone
 
 
 class MessageBubble(QWidget):
@@ -108,7 +108,9 @@ class MessageList(QWidget):
         self._stack = QStackedWidget()
         root.addWidget(self._stack)
 
-        self._empty = EmptyState("还没有消息", "在下方输入，Enter 发送。", icon="message", tone="info")
+        self._empty = EmptyState(
+            "还没有消息", "在下方输入，Enter 发送。", icon="message", tone="info"
+        )
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -183,19 +185,26 @@ class Composer(QWidget):
         self.setObjectName("psi6Composer")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         row = QHBoxLayout(self)
-        row.setContentsMargins(8, 8, 8, 8)
-        row.setSpacing(8)
+        self._row = row
         self._edit = _ComposerEdit()
         self._edit.setPlaceholderText("输入消息，Enter 发送")
-        self._edit.setFixedHeight(72)
         self._edit.submit.connect(self._submit)
         row.addWidget(self._edit, stretch=1)
         send = primary_button("发送")
         apply_button_icon(send, "send")
-        send.setFixedHeight(max(32, token_int("control_height", 32)))
         send.clicked.connect(self._submit)
         row.addWidget(send, alignment=Qt.AlignmentFlag.AlignBottom)
         self._send = send
+        self.apply_metrics()
+
+    def apply_metrics(self) -> None:
+        """留白、输入区与发送按钮高度跟随当前密度；modern 下仍是 8 / 72 / 36。"""
+
+        pad = token_int("space_sm", 8)
+        self._row.setContentsMargins(pad, pad, pad, pad)
+        self._row.setSpacing(pad)
+        self._edit.setFixedHeight(token_int("control_height", 36) * 2)
+        self._send.setFixedHeight(max(32, token_int("control_height", 32)))
 
     def set_placeholder(self, text: str) -> None:
         self._edit.setPlaceholderText(text)

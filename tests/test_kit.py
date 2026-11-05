@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from pydantic import BaseModel
-from pytestqt.qtbot import QtBot
 from PySide6.QtWidgets import QVBoxLayout, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.ui.banner import Banner
 from psi6.ui.buttons import danger_button, primary_button
+from psi6.ui.collapsible import Collapsible
 from psi6.ui.data_table import DataTable, TableColumn
 from psi6.ui.empty_state import EmptyState
 from psi6.ui.property_list import PropertyList
 from psi6.ui.search_field import SearchField
 from psi6.ui.section import Section
 from psi6.ui.status_badge import StatusBadge
-from psi6.ui.collapsible import Collapsible
 from psi6.ui.tag import TagRow
 from psi6.ui.toast import ToastHost
 
@@ -54,6 +54,23 @@ def test_status_badge_and_banner(qtbot: QtBot) -> None:
     banner.clear()
     assert banner._label.text() == ""
     assert not banner.isVisible()
+
+
+def test_banner_stays_hidden_until_it_is_in_a_layout(qtbot: QtBot) -> None:
+    banner = Banner()
+    qtbot.addWidget(banner)
+    banner.set_notice("还没放进页面")
+    assert banner.isHidden()
+    assert banner.windowHandle() is None
+    host = QWidget()
+    qtbot.addWidget(host)
+    layout = QVBoxLayout(host)
+    layout.addWidget(banner)
+    banner.set_notice("已经在页面里")
+    host.show()
+    qtbot.waitExposed(host)
+    assert banner.isVisible()
+    assert not banner.isWindow()
 
 
 def test_search_field_emits_query(qtbot: QtBot) -> None:
@@ -155,4 +172,3 @@ def test_toast_host_push_and_cap(qtbot: QtBot) -> None:
     for index in range(5):
         host.push(f"msg-{index}", timeout_ms=60_000)
     assert len(host._cards) == 4
-

@@ -44,7 +44,9 @@ class SettingRow(QWidget):
         self._switch = Switch(checked=checked)
         self._switch.setAccessibleName(title)
         self._switch.toggled.connect(self.toggled.emit)
-        row.addWidget(self._switch, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(
+            self._switch, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
 
     def is_checked(self) -> bool:
         return self._switch.isChecked()

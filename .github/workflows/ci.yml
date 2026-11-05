@@ -22,9 +22,21 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
-      - name: Install and test
+      - name: Install
+        run: uv sync --extra dev
+      - name: Lint
         run: |
-          uv sync --extra dev
-          uv run pytest
+          uv run ruff check .
+          uv run ruff format --check src tests
+      - name: Type check
+        run: uv run mypy
+      - name: Test
+        run: uv run pytest --cov=psi6
         env:
           QT_QPA_PLATFORM: offscreen
+      - name: Build and smoke-test wheel
+        shell: bash
+        run: |
+          uv build
+          WHEEL=$(ls dist/psi6-*.whl | head -1)
+          uv run --isolated --no-project --with "$WHEEL" python -c "import psi6, psi6.ui; from psi6 import Tokens; assert Tokens.light().color_bg == '#ffffff'"

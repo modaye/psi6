@@ -20,7 +20,9 @@ class BusyOverlay(QWidget):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(10)
-        layout.addWidget(Icon("refresh", size=22, tone="info"), alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(
+            Icon("refresh", size=22, tone="info"), alignment=Qt.AlignmentFlag.AlignCenter
+        )
         self._bar = QProgressBar()
         self._bar.setRange(0, 0)
         self._bar.setFixedWidth(220)

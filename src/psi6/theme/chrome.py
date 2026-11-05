@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import tempfile
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QDir
@@ -17,6 +19,8 @@ from psi6.icons.registry import svg_for
 from psi6.theme.tokens import Tokens
 
 SEARCH_PREFIX = "psi6icon"
+_CACHE_MAX_AGE = 30 * 24 * 60 * 60
+_pruned = False
 
 
 def cache_dir() -> Path:
@@ -27,17 +31,52 @@ def cache_dir() -> Path:
     return folder
 
 
+def cleanup_cache(*, max_age: float = _CACHE_MAX_AGE) -> int:
+    """删掉长期不用的缓存 SVG，避免不断换肤把临时目录堆满。
+
+    只清超过 ``max_age`` 秒的文件，并吞掉 Windows 上被占用的文件。
+    """
+
+    folder = Path(tempfile.gettempdir()) / "psi6-qss-icons"
+    if not folder.is_dir():
+        return 0
+    cutoff = time.time() - max_age
+    removed = 0
+    for path in folder.glob("*.svg"):
+        try:
+            if path.stat().st_mtime >= cutoff:
+                continue
+            path.unlink()
+            removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def _color_slug(color: str) -> str:
+    text = color.strip().lower()
+    if text.startswith("#") and len(text) > 1:
+        return text[1:]
+    return "c" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+
+
 def qss_icon_ref(name: str, *, color: str, size: int) -> str:
     """着色后写成逻辑尺寸的 SVG，返回 ``psi6icon:file.svg`` 这种 QSS 前缀路径。"""
 
+    global _pruned
+    if not _pruned:
+        _pruned = True
+        cleanup_cache()
     extent = max(8, int(size))
-    stem = f"{name}_{color.lstrip('#')}_{extent}"
+    stem = f"{name}_{_color_slug(color)}_{extent}"
     folder = cache_dir()
     QDir.setSearchPaths(SEARCH_PREFIX, [str(folder.resolve())])
     path = folder / f"{stem}.svg"
     markup = svg_for(name).replace("currentColor", color)
     markup = markup.replace('width="24" height="24"', f'width="{extent}" height="{extent}"', 1)
-    path.write_text(markup, encoding="utf-8")
+    # 同一主题反复套用时不重写临时文件，减少磁盘抖动。
+    if not path.is_file() or path.read_text(encoding="utf-8") != markup:
+        path.write_text(markup, encoding="utf-8")
     return f"{SEARCH_PREFIX}:{path.name}"
 
 
@@ -45,6 +84,9 @@ def chrome_images(tokens: Tokens) -> dict[str, str]:
     """下拉与步进箭头的 QSS 图。"""
 
     size = max(12, min(tokens.icon_size, 16))
+    # 页签关闭按钮：QSS 一旦写 background / border / image 就会接管掉 Qt 原生
+    # 的叉号，所以必须自己给一份图形。
+    close = max(8, min(tokens.icon_size, 12))
     return {
         "down": qss_icon_ref("chevron-down", color=tokens.color_muted, size=size),
         "up": qss_icon_ref("chevron-up", color=tokens.color_muted, size=size),
@@ -56,4 +98,6 @@ def chrome_images(tokens: Tokens) -> dict[str, str]:
         "dot_on": qss_icon_ref("dot", color=tokens.color_on_primary, size=size),
         "check_muted": qss_icon_ref("check", color=tokens.color_muted, size=size),
         "dot_muted": qss_icon_ref("dot", color=tokens.color_muted, size=size),
+        "tab_close": qss_icon_ref("x", color=tokens.color_muted, size=close),
+        "tab_close_on": qss_icon_ref("x", color=tokens.color_text, size=close),
     }

@@ -9,8 +9,10 @@ from psi6.ui.chat import Composer, MessageList
 from psi6.ui.check_list import CheckItem, CheckList
 from psi6.ui.chrome import PageHeader, StatCard
 from psi6.ui.collapsible import Collapsible
+from psi6.ui.column_picker import ColumnPicker, ColumnState, column_toggle_menu
 from psi6.ui.command_palette import Command, CommandPalette
 from psi6.ui.content_dialog import ContentDialog
+from psi6.ui.context_menu import MenuAction, MenuTarget, attach_context_menu, build_menu
 from psi6.ui.data_table import DataTable, TableColumn
 from psi6.ui.desktop_window import DesktopWindow
 from psi6.ui.dialogs import confirm, fail, inform, warn
@@ -19,6 +21,7 @@ from psi6.ui.drop_zone import DropZone
 from psi6.ui.empty_state import EmptyState
 from psi6.ui.file_input import FileInput, FolderInput, PathState
 from psi6.ui.filters import DebugEventFilter, PressScaleFilter, install_press_scale
+from psi6.ui.float_ball import FloatBall
 from psi6.ui.flow_layout import FlowLayout
 from psi6.ui.form import (
     FormError,
@@ -30,9 +33,11 @@ from psi6.ui.form import (
     field_switch,
     pydantic_form,
 )
+from psi6.ui.history import EditHistory
 from psi6.ui.icon import Icon, IconButton
 from psi6.ui.image_well import IconPreview, ImageWell
 from psi6.ui.kbd import KbdHint
+from psi6.ui.log_console import LogConsole, LogConsoleHandler
 from psi6.ui.log_panel import LogPanel
 from psi6.ui.playlist import Playlist
 from psi6.ui.property_list import PropertyList
@@ -41,30 +46,36 @@ from psi6.ui.section import Section
 from psi6.ui.segmented import SegmentedControl
 from psi6.ui.setting_row import SettingRow
 from psi6.ui.settings_page import SettingsPage, pydantic_settings
+from psi6.ui.shortcuts import ShortcutBook
 from psi6.ui.sparkline import Sparkline
 from psi6.ui.status_badge import StatusBadge
 from psi6.ui.status_progress import StatusProgress
 from psi6.ui.stepper import Stepper
 from psi6.ui.switch import Switch
+from psi6.ui.tab_view import TabView
 from psi6.ui.tag import Tag, TagRow
-from psi6.ui.log_console import LogConsole, LogConsoleHandler
 from psi6.ui.title_bar import TitleBar
 from psi6.ui.toast import ToastCard, ToastHost
 from psi6.ui.tone import Tone
 from psi6.ui.transport import TransportBar
 from psi6.ui.tray import TrayIcon
+from psi6.ui.tree_view import TreeColumn, TreeNode, TreeView
 from psi6.ui.workbench import ChangeList, ChangeRow, ToolTile
+from psi6.ui.workspace import Breadcrumb, ToolBar, Workspace
 
 __all__ = [
     "ActionBar",
     "AppShell",
     "Banner",
+    "Breadcrumb",
     "BusyOverlay",
     "ChangeList",
     "ChangeRow",
     "CheckItem",
     "CheckList",
     "Collapsible",
+    "ColumnPicker",
+    "ColumnState",
     "Command",
     "CommandPalette",
     "Composer",
@@ -74,8 +85,10 @@ __all__ = [
     "DesktopWindow",
     "DiffView",
     "DropZone",
+    "EditHistory",
     "EmptyState",
     "FileInput",
+    "FloatBall",
     "FlowLayout",
     "FolderInput",
     "FormError",
@@ -88,6 +101,8 @@ __all__ = [
     "LogConsole",
     "LogConsoleHandler",
     "LogPanel",
+    "MenuAction",
+    "MenuTarget",
     "MessageList",
     "NavDestination",
     "PageHeader",
@@ -100,22 +115,31 @@ __all__ = [
     "SegmentedControl",
     "SettingRow",
     "SettingsPage",
+    "ShortcutBook",
     "Sparkline",
     "StatCard",
     "StatusBadge",
     "StatusProgress",
     "Stepper",
     "Switch",
+    "TabView",
     "TableColumn",
     "Tag",
     "TagRow",
     "TitleBar",
+    "ToolBar",
     "ToastCard",
     "ToastHost",
     "Tone",
     "ToolTile",
     "TransportBar",
     "TrayIcon",
+    "TreeColumn",
+    "TreeNode",
+    "TreeView",
+    "attach_context_menu",
+    "build_menu",
+    "column_toggle_menu",
     "confirm",
     "danger_button",
     "fail",
@@ -133,4 +157,5 @@ __all__ = [
     "pydantic_settings",
     "text_button",
     "warn",
+    "Workspace",
 ]

@@ -5,12 +5,15 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
+from psi6.theme.apply import apply_psi6_button_style
+
 
 def primary_button(text: str, parent: QWidget | None = None) -> QPushButton:
     """主题中的主按钮。"""
 
     button = QPushButton(text, parent)
     button.setObjectName("psi6Primary")
+    apply_psi6_button_style(button)
     return button
 
 
@@ -19,6 +22,7 @@ def danger_button(text: str, parent: QWidget | None = None) -> QPushButton:
 
     button = QPushButton(text, parent)
     button.setObjectName("psi6Danger")
+    apply_psi6_button_style(button)
     return button
 
 
@@ -27,6 +31,7 @@ def ghost_button(text: str, parent: QWidget | None = None) -> QPushButton:
 
     button = QPushButton(text, parent)
     button.setObjectName("psi6Ghost")
+    apply_psi6_button_style(button)
     return button
 
 
@@ -37,6 +42,7 @@ def text_button(text: str, parent: QWidget | None = None) -> QPushButton:
     button.setObjectName("psi6Link")
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setFlat(True)
+    apply_psi6_button_style(button)
     return button
 
 

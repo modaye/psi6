@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
+from psi6.theme.apply import apply_psi6_button_style
 from psi6.ui.icon import Icon
 from psi6.ui.tone import Tone
 
@@ -26,6 +27,8 @@ class EmptyState(QWidget):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("psi6EmptyState")
+        # Plain QWidget subclass: QSS background/border only paint with this flag set.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 32, 24, 32)
@@ -57,6 +60,7 @@ class EmptyState(QWidget):
 
         self._action = QPushButton(action_text)
         self._action.setObjectName("psi6Primary")
+        apply_psi6_button_style(self._action)
         self._action.clicked.connect(self.action_clicked.emit)
         root.addWidget(self._action, alignment=Qt.AlignmentFlag.AlignHCenter)
         if not action_text:

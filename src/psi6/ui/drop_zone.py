@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-from psi6.theme.runtime import token_int
+from psi6.theme.runtime import metrics_scale, token_int
 from psi6.ui.file_input import FileInput, FolderInput
 from psi6.ui.icon import Icon
 from psi6.ui.tag import Tag
@@ -47,33 +47,24 @@ class DropZone(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        control = token_int("control_height", 32)
-        height = {
-            "compact": control * 4,
-            "comfortable": control * 6,
-            "hero": control * 8,
-        }.get(size, control * 6)
-        self.setMinimumHeight(max(140, height))
+        self._size_variant: Size = size
         self.setAccessibleName(title)
         self._filters = filters
         self._mode: Mode = mode
         self._browse_on_click = browse_on_click
         self._suffixes = _suffixes_from_filters(filters)
-        icon_size = 36 if size == "hero" else 28 if size == "comfortable" else 22
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 28, 28, 28)
-        root.setSpacing(10)
+        self._root = root
         root.addStretch(1)
 
         self._icon_host = QWidget()
         self._icon_host.setObjectName("psi6DropZoneIcon")
         self._icon_host.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._icon_host.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self._icon_host.setFixedSize(icon_size + 28, icon_size + 28)
         icon_layout = QVBoxLayout(self._icon_host)
         icon_layout.setContentsMargins(0, 0, 0, 0)
-        self._icon = Icon(icon, size=icon_size, tone="info")
+        self._icon = Icon(icon, tone="info")
         self._icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         icon_layout.addWidget(self._icon, alignment=Qt.AlignmentFlag.AlignCenter)
         root.addWidget(self._icon_host, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -114,6 +105,22 @@ class DropZone(QWidget):
         self._picker = picker
         self._set_flag("dropHover", False)
         self._set_flag("pressed", False)
+        self.apply_metrics()
+
+    def apply_metrics(self) -> None:
+        """密度切换后重算最小高度、留白与图标边长；modern 下保持原有尺寸。"""
+
+        control = token_int("control_height", 32)
+        scale = metrics_scale()
+        multiplier = {"compact": 4, "comfortable": 6, "hero": 8}.get(self._size_variant, 6)
+        self.setMinimumHeight(max(140, control * multiplier))
+        pad = max(8, round(28 * scale))
+        self._root.setContentsMargins(pad, pad, pad, pad)
+        self._root.setSpacing(max(4, round(10 * scale)))
+        base_icon = {"hero": 36, "comfortable": 28, "compact": 22}.get(self._size_variant, 28)
+        icon_size = max(12, round(base_icon * scale))
+        self._icon.set_size(icon_size)
+        self._icon_host.setFixedSize(icon_size + pad, icon_size + pad)
 
     def set_copy(self, title: str, hint: str = "", *, badge: str | None = None) -> None:
         """更新标题与说明。空 ``badge`` 隐藏角标。"""
@@ -179,13 +186,15 @@ class DropZone(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._set_flag("pressed", False)
-        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
+            event.position().toPoint()
+        ):
             self.clicked.emit()
             if self._browse_on_click:
                 self.browse()
         super().mouseReleaseEvent(event)
 
-    def keyPressEvent(self, event) -> None:  # noqa: ANN001
+    def keyPressEvent(self, event) -> None:
         if event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space}:
             self.clicked.emit()
             if self._browse_on_click:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from psi6.icons.glyphs import GLYPHS, _SVG
+from psi6.icons.glyphs import _SVG, GLYPHS
 
 _USER: dict[str, str] = {}
 _THEME: dict[str, str] = {}

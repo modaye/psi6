@@ -84,7 +84,9 @@ class Switch(QAbstractButton):
             on = token_color("primary" if enabled else "disabled")
             painter.setBrush(mix_color(off, on, amount))
             margin = max(1.0, self.height() * 0.08)
-            groove = QRectF(margin, self.height() * 0.14, self.width() - margin * 2, self.height() * 0.72)
+            groove = QRectF(
+                margin, self.height() * 0.14, self.width() - margin * 2, self.height() * 0.72
+            )
             radius = groove.height() / 2
             painter.drawRoundedRect(groove, radius, radius)
             if self.hasFocus() and enabled:

@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
+
+from psi6.theme.colors import is_color, mix_hex
+
+_STATE_FIELDS = {
+    "color_pressed",
+    "color_selected",
+    "color_primary_hover",
+    "color_primary_pressed",
+    "color_danger_hover",
+    "color_danger_pressed",
+}
+# 留空表示「跟着另一条 token 走」，不是非法颜色。控件描边默认等于 color_border。
+_OPTIONAL_COLOR_FIELDS = _STATE_FIELDS | {"color_control_border"}
+_HOVER_SHADE = "#ffffff"
+_PRESS_SHADE = "#10151c"
 
 _NESTED_FIELDS: dict[str, dict[str, str]] = {
     "button": {"radius": "button_radius", "height": "control_height"},
@@ -63,9 +79,14 @@ class Tokens:
     用户自定义：子类化 ``psi6.theme.Theme``，或 ``overlay`` 覆盖字段。不要手写整份 QSS，
     也不要再用 JSON / TOML / YAML 描述主题。
     动画只暴露时长：``motion_fast_ms`` / ``motion_ms``（毫秒，``0`` 关闭）。
-    ``Theme.style`` 取 ``modern`` 或 ``compact``，只决定尺寸。``base`` 只决定配色。
+    ``Theme.style`` 取 ``modern`` 或 ``compact``，只决定尺寸。``base`` 取 ``light``、``dark`` 或 ``auto``，只决定配色。
+    字体只有正文（``font_family`` / ``font_size``）和等宽（``font_mono``）两族，标题只用字号和字重区分。
     文字只有标题、正文、辅助三档。表面是窗口、面板、输入、浮层四层。
     组件级覆盖可用嵌套：``button.radius``、``title_bar.height``、``switch.width``。
+    状态色留空时按基础色推导：按下比悬停对比更强，选中是主色的浅底。写值即覆盖。
+    ``color_control_border`` 是输入框、普通按钮、勾选框等交互控件的描边。留空时等于
+    ``color_border``，因此浅色、深色和只改了 ``color_border`` 的自定义主题不用再写一份。
+    分隔线、卡片、对话框仍用 ``color_border``。需要把控件边和结构边分开时再写值。
     图标：主题旁 ``icons/search.svg`` 与 ``Icon("search")`` 同名即覆盖。
     """
 
@@ -74,18 +95,25 @@ class Tokens:
     color_elevated: str = "#ffffff"
     color_sunken: str = "#f3f5f8"
     color_hover: str = "#e9eef4"
+    color_pressed: str = ""
+    color_selected: str = ""
     color_text: str = "#1c2431"
     color_muted: str = "#5a6675"
     color_border: str = "#d3dae3"
     color_border_subtle: str = "#e6eaf0"
+    color_control_border: str = ""
     color_disabled: str = "#9ba5b2"
     color_primary: str = "#2b5cd7"
     color_on_primary: str = "#f6f9ff"
+    color_primary_hover: str = ""
+    color_primary_pressed: str = ""
     color_danger: str = "#d0392e"
+    color_danger_hover: str = ""
+    color_danger_pressed: str = ""
     color_success: str = "#1e7a4c"
     color_warning: str = "#9a5f08"
     color_info: str = "#0e7490"
-    color_focus: str = "#2b5cd7"
+    color_focus: str = "#1565ff"
     color_overlay: str = "rgba(233, 238, 244, 215)"
     color_sidebar: str = "#f1f3f6"
     color_sidebar_text: str = "#42505f"
@@ -170,8 +198,27 @@ class Tokens:
             current = getattr(self, key)
             if key == "icons":
                 kwargs[key] = _as_icon_pairs(value)
+            elif key.startswith("color_"):
+                color = str(value).strip()
+                if not color and key in _OPTIONAL_COLOR_FIELDS:
+                    kwargs[key] = ""
+                    continue
+                if not is_color(color):
+                    raise ValueError(f"{key} 不是有效颜色：{value!r}")
+                kwargs[key] = color
             elif isinstance(current, int):
-                kwargs[key] = int(value)
+                try:
+                    number = int(value)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"{key} 必须是整数，收到 {value!r}") from exc
+                if number < 0:
+                    raise ValueError(f"{key} 不能为负数：{number}")
+                kwargs[key] = number
+            elif key == "icon_dir":
+                folder = str(value).strip()
+                if folder and not Path(folder).expanduser().is_dir():
+                    raise ValueError(f"icon_dir 不存在：{folder}")
+                kwargs[key] = folder
             elif isinstance(current, tuple):
                 kwargs[key] = _as_icon_pairs(value)
             else:
@@ -184,6 +231,26 @@ class Tokens:
             kwargs.setdefault("motion_ms", 0)
             kwargs["reduced_motion"] = 1
         return replace(self, **kwargs) if kwargs else self
+
+    def resolve_states(self) -> Tokens:
+        """补齐空的状态色，并把空的控件描边收成 ``color_border``。显式值保留。"""
+
+        updates: dict[str, Any] = {}
+        if not self.color_pressed:
+            updates["color_pressed"] = mix_hex(self.color_hover, self.color_text, 0.12)
+        if not self.color_selected:
+            updates["color_selected"] = mix_hex(self.color_primary, self.color_bg, 0.86)
+        if not self.color_primary_hover:
+            updates["color_primary_hover"] = mix_hex(self.color_primary, _HOVER_SHADE, 0.24)
+        if not self.color_primary_pressed:
+            updates["color_primary_pressed"] = mix_hex(self.color_primary, _PRESS_SHADE, 0.32)
+        if not self.color_danger_hover:
+            updates["color_danger_hover"] = mix_hex(self.color_danger, _HOVER_SHADE, 0.18)
+        if not self.color_danger_pressed:
+            updates["color_danger_pressed"] = mix_hex(self.color_danger, _PRESS_SHADE, 0.28)
+        if not self.color_control_border:
+            updates["color_control_border"] = self.color_border
+        return replace(self, **updates) if updates else self
 
 
 def merge_style(base: Tokens, style: str, updates: Mapping[str, Any]) -> Tokens:
@@ -199,7 +266,21 @@ def merge_style(base: Tokens, style: str, updates: Mapping[str, Any]) -> Tokens:
     return base.overlay({**preset, **data})
 
 
-DEFAULT_TOKENS = Tokens.light()
+def style_metrics(style: str) -> dict[str, int]:
+    """返回 ``modern`` / ``compact`` 的尺寸预设（控件高、间距、字号、圆角等）。
+
+    供响应式密度（窗口变小 / 高 DPI 时自动收紧）按需覆盖用，只含度量字段，不动颜色。
+    """
+
+    name = str(style).strip().lower()
+    if name == "compact":
+        return dict(_COMPACT_METRICS)
+    if name == "modern":
+        return dict(_MODERN_METRICS)
+    raise ValueError(f"style 只能是 modern 或 compact，收到 {style!r}")
+
+
+DEFAULT_TOKENS = Tokens.light().resolve_states()
 
 
 def resolve_tokens(theme: str | Tokens | Any | None = None) -> Tokens:
@@ -216,13 +297,13 @@ def resolve_tokens(theme: str | Tokens | Any | None = None) -> Tokens:
     if isinstance(theme, Theme):
         return theme.tokens()
     if isinstance(theme, Tokens):
-        return theme
+        return theme.resolve_states()
     if isinstance(theme, str) and theme.lower() in {"auto", "system"}:
-        return Tokens.dark() if system_prefers_dark() else Tokens.light()
+        return (Tokens.dark() if system_prefers_dark() else Tokens.light()).resolve_states()
     if theme == "dark":
-        return Tokens.dark()
+        return Tokens.dark().resolve_states()
     if theme in {None, "light"}:
-        return Tokens.light()
+        return Tokens.light().resolve_states()
     if isinstance(theme, Path) or _looks_like_theme_file(theme):
         raise TypeError(
             "主题用 Python 类定义，例如 App(name, theme=MyTheme)。不再读取 JSON、TOML 或 YAML。"

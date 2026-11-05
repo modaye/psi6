@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import uuid
 
-from PySide6.QtCore import QPoint, QRect, QSize
+import pytest
+from PySide6.QtCore import QPoint, QRect, QSize, Qt
+from PySide6.QtWidgets import QSystemTrayIcon
 from pytestqt.qtbot import QtBot
 
 from psi6.runtime.qt_env import detect_font_dir, prepare_qt_environment
@@ -12,8 +14,8 @@ from psi6.runtime.single_instance import SingleInstance, instance_key
 from psi6.ui.chat import MessageList
 from psi6.ui.command_palette import Command, CommandPalette
 from psi6.ui.desktop_window import DesktopWindow
-from psi6.ui.status_progress import StatusProgress
 from psi6.ui.diff_view import DiffView
+from psi6.ui.status_progress import StatusProgress
 from psi6.ui.stepper import Stepper
 from psi6.ui.title_bar import drag_origin_after_restore
 from psi6.ui.transport import TransportBar
@@ -146,6 +148,73 @@ def test_close_to_tray_hides_request_quit_closes(qtbot: QtBot) -> None:
     assert window._force_quit
 
 
+def test_tray_click_restores_minimized_and_ignores_double_click(qtbot: QtBot, monkeypatch) -> None:
+    monkeypatch.setattr("psi6.ui.tray.QSystemTrayIcon.isSystemTrayAvailable", lambda: True)
+    window = DesktopWindow(title="托盘单击")
+    qtbot.addWidget(window)
+    window.show()
+    tray = TrayIcon(window, tooltip="psi6-test", icon="grid")
+    assert tray.available
+    window.setWindowState(Qt.WindowState.WindowMinimized)
+    assert window.isMinimized()
+    tray._on_activated(QSystemTrayIcon.ActivationReason.Trigger)
+    assert not window.isMinimized()
+    assert window.isVisible()
+    tray._on_activated(QSystemTrayIcon.ActivationReason.Trigger)
+    assert not window.isVisible()
+    tray._on_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
+    assert not window.isVisible()
+
+
+def test_tray_menu_follows_visibility_and_accepts_actions(qtbot: QtBot, monkeypatch) -> None:
+    monkeypatch.setattr("psi6.ui.tray.QSystemTrayIcon.isSystemTrayAvailable", lambda: True)
+    window = DesktopWindow(title="托盘菜单")
+    qtbot.addWidget(window)
+    window.show()
+    tray = TrayIcon(window, tooltip="psi6", icon="grid")
+    assert tray._menu is not None and tray._tray is not None
+    seen: list[str] = []
+    tray.add_action("暂停", lambda: seen.append("pause"), icon="pause")
+    kinds = [(action.text(), action.isSeparator()) for action in tray._menu.actions()]
+    assert kinds == [
+        ("显示窗口", False),
+        ("隐藏窗口", False),
+        ("", True),
+        ("暂停", False),
+        ("", True),
+        ("退出", False),
+    ]
+    tray._menu.aboutToShow.emit()
+    assert not tray._menu.actions()[0].isEnabled()
+    assert tray._menu.actions()[1].isEnabled()
+    window.hide()
+    tray._menu.aboutToShow.emit()
+    assert tray._menu.actions()[0].isEnabled()
+    assert not tray._menu.actions()[1].isEnabled()
+    pause = next(action for action in tray._menu.actions() if action.text() == "暂停")
+    pause.trigger()
+    qtbot.waitUntil(lambda: seen == ["pause"])
+    tray.set_status("正在扫描")
+    assert tray.status == "正在扫描"
+    assert "正在扫描" in tray._tray.toolTip()
+    tray.set_status("")
+    assert tray._tray.toolTip() == "psi6"
+    tray.show_message("完成", "扫描结束")
+
+
+def test_tray_status_is_kept_when_tray_missing(qtbot: QtBot, monkeypatch) -> None:
+    monkeypatch.setattr("psi6.ui.tray.QSystemTrayIcon.isSystemTrayAvailable", lambda: False)
+    window = DesktopWindow(title="无托盘")
+    qtbot.addWidget(window)
+    tray = TrayIcon(window, tooltip="psi6", icon="grid")
+    tray.add_action("暂停", lambda: None)
+    tray.set_status("忙")
+    tray.show_message("标题", "正文")
+    tray.refresh()
+    assert tray.available is False
+    assert tray.status == "忙"
+
+
 def test_tray_refresh_is_safe_without_system_tray(qtbot: QtBot) -> None:
     window = DesktopWindow(title="托盘", icon="folder")
     qtbot.addWidget(window)
@@ -182,6 +251,50 @@ def test_single_instance_second_fails(qtbot: QtBot) -> None:
     third = SingleInstance(key)
     assert third.try_acquire()
     third.close()
+
+
+def test_single_instance_only_accepts_its_payload(qtbot: QtBot) -> None:
+    from PySide6.QtNetwork import QLocalSocket
+
+    key = instance_key("psi6-test", f"payload-{uuid.uuid4().hex}")
+    first = SingleInstance(key)
+    assert first.try_acquire()
+    try:
+        with qtbot.assertNotEmitted(first.activated, wait=150):
+            socket = QLocalSocket()
+            socket.connectToServer(key)
+            assert socket.waitForConnected(500)
+            socket.write(b"not-the-payload")
+            socket.flush()
+            socket.waitForBytesWritten(500)
+            socket.disconnectFromServer()
+            socket.waitForDisconnected(500)
+        with qtbot.waitSignal(first.activated, timeout=3000):
+            assert first.notify_existing()
+    finally:
+        first.close()
+
+
+def test_single_instance_custom_payload(qtbot: QtBot) -> None:
+    key = instance_key("psi6-test", f"custom-{uuid.uuid4().hex}")
+    first = SingleInstance(key, payload=b"custom-wake")
+    assert first.try_acquire()
+    second = SingleInstance(key, payload=b"custom-wake")
+    try:
+        with qtbot.waitSignal(first.activated, timeout=3000):
+            assert second.notify_existing()
+        with qtbot.assertNotEmitted(first.activated, wait=150):
+            assert second.notify_existing(b"other")
+    finally:
+        first.close()
+
+
+def test_single_instance_rejects_oversized_payload() -> None:
+    with pytest.raises(ValueError, match="payload"):
+        SingleInstance("psi6-test", payload=b"")
+    instance = SingleInstance("psi6-test")
+    with pytest.raises(ValueError, match="payload"):
+        instance.notify_existing(b"x" * 257)
 
 
 def test_transport_mute_and_chat_empty(qtbot: QtBot) -> None:

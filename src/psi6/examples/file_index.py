@@ -6,19 +6,27 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from psi6 import App, DesktopWindow, JobOutcome, TaskHandle
-from psi6.jobs.file_index import FILE_INDEX_COLUMNS, FileIndexParams, run_file_index
+from psi6.jobs.file_index import FileIndexParams, run_file_index
 from psi6.ui.buttons import ghost_button, primary_button
-from psi6.ui.data_table import DataTable
+from psi6.ui.data_table import DataTable, TableColumn
 from psi6.ui.form import FormError, pydantic_form
 from psi6.ui.log_panel import LogPanel
 from psi6.ui.status_progress import StatusProgress
+from psi6.ui.workspace import Workspace
+
+FILE_INDEX_COLUMNS = [
+    TableColumn("name", "文件名"),
+    TableColumn("suffix", "类型"),
+    TableColumn("size", "大小"),
+    TableColumn("path", "路径", stretch=True),
+]
 
 
 def build(app: App) -> DesktopWindow:
-    """系统标题栏。进度在状态栏右侧，取消按钮单独放在表单下方。"""
+    """系统标题栏。开始和取消在工具栏，进度在状态栏。"""
 
     window = DesktopWindow(title="文件索引")
     window.resize(880, 640)
@@ -76,22 +84,22 @@ def build(app: App) -> DesktopWindow:
     start.clicked.connect(start_job)
     cancel.clicked.connect(request_cancel)
 
-    actions = QWidget()
-    row = QHBoxLayout(actions)
-    row.setContentsMargins(0, 0, 0, 0)
-    row.addWidget(start)
-    row.addWidget(cancel)
-    row.addStretch()
-
-    body = QWidget()
-    column = QVBoxLayout(body)
-    column.setContentsMargins(16, 16, 16, 8)
+    main = QWidget()
+    column = QVBoxLayout(main)
+    column.setContentsMargins(0, 0, 0, 0)
     column.setSpacing(10)
     column.addWidget(form)
-    column.addWidget(actions)
     column.addWidget(table, stretch=1)
-    column.addWidget(log, stretch=1)
-    window.set_body(body)
+    work = Workspace()
+    work.setObjectName("psi6PrototypeBatch")
+    work.set_crumbs(["文件", "索引"])
+    work.toolbar.add_primary(start)
+    work.toolbar.add_secondary(cancel)
+    work.set_pane("center", main)
+    work.set_pane("right", log)
+    work.set_stretch("center", 3)
+    work.set_stretch("right", 2)
+    window.set_body(work)
     window.statusBar().showMessage("就绪")
     return window
 

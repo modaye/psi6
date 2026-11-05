@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from psi6.icons.glyphs import TONE_ICONS
@@ -24,6 +24,8 @@ class Banner(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("psi6Banner")
+        # Plain QWidget subclass: QSS background/border only paint with this flag set.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self._row = QHBoxLayout(self)
         self._row.setContentsMargins(10, 6, 10, 6)
         self._row.setSpacing(8)
@@ -45,7 +47,11 @@ class Banner(QWidget):
         tone: Tone | str = "info",
         actions: Sequence[BannerAction] | None = None,
     ) -> None:
-        """显示一条人话。``actions`` 最多两个按钮，例如「查看文件」「排除」。"""
+        """显示一条人话。``actions`` 最多两个按钮，例如「查看文件」「排除」。
+
+        横幅应已经放进布局。还没有父控件时只记下内容，保持构造时的隐藏，
+        避免 ``show()`` 先开出一个独立窗口。
+        """
 
         message = text.strip()
         if not message:
@@ -57,7 +63,9 @@ class Banner(QWidget):
         self._icon.set_name(icon_name)
         self._icon.set_tone(tone if tone != "neutral" else "info")
         self._rebuild_actions(actions or ())
-        self.show()
+        # 构造时已经 hide()。这里只在已经进布局之后再显示，避免无父对象时弹出窗口。
+        if self.parentWidget() is not None:
+            self.show()
 
     def clear(self) -> None:
         """隐藏横幅。"""

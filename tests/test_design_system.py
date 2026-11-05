@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pytestqt.qtbot import QtBot
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QLineEdit, QVBoxLayout, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6 import App
 from psi6.theme.theme import Theme
@@ -27,7 +27,8 @@ def _probe(base: str, style: str) -> type[Theme]:
 def test_four_combinations_restyle_live_widgets(qtbot: QtBot, tmp_path: Path) -> None:
     """已创建的控件跟着主题切换，不留下上一套高度或画布色。"""
 
-    app = App("psi6-four", theme="light", config_root=tmp_path)
+    # App 默认不画焦点环；这里显式开启，继续覆盖四种组合下的 a11y 焦点样式。
+    app = App("psi6-four", theme="light", config_root=tmp_path, focus_ring=True)
     button = primary_button("开始")
     edit = QLineEdit()
     qtbot.addWidget(button)
@@ -47,8 +48,13 @@ def test_four_combinations_restyle_live_widgets(qtbot: QtBot, tmp_path: Path) ->
         assert canvas in css
         assert f"min-height: {height}px" in css
         assert f"border: {app.tokens.focus_ring_width}px solid" in css
-        assert "psi6Primary:pressed" in css
-        assert "psi6NavItem:focus" in css
+        # Themed buttons are styled per-widget; their states live in the per-widget
+        # sheet built from the active resolved tokens.
+        from psi6.theme.apply import psi6_button_stylesheet
+
+        resolved = app.qt_app.property("psi6ResolvedTokens")
+        assert "QPushButton:pressed" in psi6_button_stylesheet("psi6Primary", resolved)
+        assert "QPushButton:focus" in psi6_button_stylesheet("psi6NavItem", resolved)
         assert "QTabBar::tab:disabled" in css
 
 

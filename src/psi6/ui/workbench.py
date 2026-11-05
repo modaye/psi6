@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWi
 
 from psi6.ui.icon import Icon
 from psi6.ui.status_badge import StatusBadge
+from psi6.ui.tone import Tone
 
 
 class ToolTile(QWidget):
@@ -44,12 +45,12 @@ class ToolTile(QWidget):
         desc.setWordWrap(True)
         root.addWidget(desc)
 
-    def mouseReleaseEvent(self, event) -> None:  # noqa: ANN001
+    def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
-    def keyPressEvent(self, event) -> None:  # noqa: ANN001
+    def keyPressEvent(self, event) -> None:
         if event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space}:
             self.clicked.emit()
             event.accept()
@@ -104,7 +105,7 @@ class ChangeRow(QWidget):
     def is_selected(self) -> bool:
         return self._selected
 
-    def mouseReleaseEvent(self, event) -> None:  # noqa: ANN001
+    def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self._path)
         super().mouseReleaseEvent(event)
@@ -152,8 +153,8 @@ class ChangeList(QWidget):
         return self._current
 
 
-def _kind_meta(kind: str) -> tuple[str, str, str]:
-    mapping = {
+def _kind_meta(kind: str) -> tuple[Tone, str, str]:
+    mapping: dict[str, tuple[Tone, str, str]] = {
         "added": ("success", "新增", "file-plus"),
         "deleted": ("error", "删除", "trash"),
         "modified": ("warning", "修改", "file"),

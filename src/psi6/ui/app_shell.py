@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from psi6.theme.apply import apply_psi6_button_style
 from psi6.theme.runtime import token_int, token_ms
 from psi6.ui.icon import IconButton, token_color
 
@@ -60,6 +61,7 @@ class Sidebar(QWidget):
         for index, item in enumerate(destinations):
             button = QPushButton(f"  {item.title}")
             button.setObjectName("psi6NavItem")
+            apply_psi6_button_style(button)
             button.setCheckable(True)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setAccessibleName(item.title)
@@ -167,7 +169,7 @@ class Sidebar(QWidget):
             name = button.property("psi6IconName")
             if isinstance(name, str):
                 self._paint_nav_icon(button, name)
-        self._toggle.changeEvent(QEvent(QEvent.Type.PaletteChange))
+        self._toggle.refresh()
 
     def changeEvent(self, event: QEvent) -> None:  # type: ignore[override]
         super().changeEvent(event)

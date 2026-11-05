@@ -19,42 +19,58 @@ class FlowLayout(QLayout):
     ) -> None:
         super().__init__(parent)
         self._items: list[QLayoutItem] = []
-        gap = token_int("space_sm", 6) if spacing is None else spacing
+        self._explicit_spacing = spacing
+        self._apply_spacing()
+
+    def _apply_spacing(self) -> None:
+        gap = token_int("space_sm", 6) if self._explicit_spacing is None else self._explicit_spacing
         self.setSpacing(max(0, gap))
 
-    def addItem(self, item: QLayoutItem) -> None:  # noqa: N802
+    def apply_metrics(self) -> None:
+        """主题 / 密度切换后重读自动间距。
+
+        ``QLayout`` 不是 ``QWidget``，收不到 ``StyleChange``，构造时缓存的
+        ``setSpacing`` 只能靠 ``refresh_metrics`` 的布局树广播来刷新。
+        显式传过 ``spacing`` 的布局是调用方自己定的，不覆盖。
+        """
+
+        if self._explicit_spacing is None:
+            self._apply_spacing()
+            self.invalidate()
+
+    def addItem(self, item: QLayoutItem) -> None:
         self._items.append(item)
 
     def count(self) -> int:
         return len(self._items)
 
-    def itemAt(self, index: int) -> QLayoutItem | None:  # noqa: N802
+    def itemAt(self, index: int) -> QLayoutItem | None:
         if 0 <= index < len(self._items):
             return self._items[index]
         return None
 
-    def takeAt(self, index: int) -> QLayoutItem | None:  # noqa: N802
+    def takeAt(self, index: int) -> QLayoutItem | None:
         if 0 <= index < len(self._items):
             return self._items.pop(index)
         return None
 
-    def expandingDirections(self) -> Qt.Orientations:  # noqa: N802
-        return Qt.Orientations()
+    def expandingDirections(self) -> Qt.Orientation:
+        return Qt.Orientation(0)
 
-    def hasHeightForWidth(self) -> bool:  # noqa: N802
+    def hasHeightForWidth(self) -> bool:
         return True
 
-    def heightForWidth(self, width: int) -> int:  # noqa: N802
+    def heightForWidth(self, width: int) -> int:
         return self._fill(QRect(0, 0, width, 0), test=True)
 
-    def setGeometry(self, rect: QRect) -> None:  # noqa: N802
+    def setGeometry(self, rect: QRect) -> None:
         super().setGeometry(rect)
         self._fill(rect, test=False)
 
-    def sizeHint(self) -> QSize:  # noqa: N802
+    def sizeHint(self) -> QSize:
         return self.minimumSize()
 
-    def minimumSize(self) -> QSize:  # noqa: N802
+    def minimumSize(self) -> QSize:
         size = QSize()
         for item in self._items:
             size = size.expandedTo(item.minimumSize())

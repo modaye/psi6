@@ -9,15 +9,7 @@ from pydantic import BaseModel
 
 from psi6.runtime.job import JobOutcome
 from psi6.runtime.logs import LogLevel, LogRecord
-from psi6.ui.data_table import TableColumn
-from psi6.ui.form import field_advanced, field_dir, field_switch
-
-FILE_INDEX_COLUMNS = [
-    TableColumn("name", "文件名"),
-    TableColumn("suffix", "类型"),
-    TableColumn("size", "大小"),
-    TableColumn("path", "路径", stretch=True),
-]
+from psi6.schema import field_advanced, field_dir, field_switch
 
 
 class FileIndexParams(BaseModel):
@@ -45,10 +37,7 @@ def iter_files(
     """列出匹配文件。不可读的目录由调用方记日志。"""
 
     wanted = _normalize_suffix(suffix)
-    if recursive:
-        iterator = root.rglob("*")
-    else:
-        iterator = root.iterdir()
+    iterator = root.rglob("*") if recursive else root.iterdir()
     for path in iterator:
         try:
             is_file = path.is_file()

@@ -34,7 +34,7 @@ def create_painter(
 def as_color(value: str | QColor) -> QColor:
     """token 色字符串或 ``QColor`` 都收成可改的 ``QColor``。"""
 
-    return QColor(value) if isinstance(value, str) else QColor(value)
+    return QColor(value)
 
 
 def mix_color(start: str | QColor, end: str | QColor, amount: float) -> QColor:
@@ -76,7 +76,11 @@ def rounded_rect_path(
         path.moveTo(box.left() + top_left, box.top())
         path.lineTo(box.right() - top_right, box.top())
         if top_right > 0:
-            path.arcTo(QRectF(box.right() - 2 * top_right, box.top(), 2 * top_right, 2 * top_right), 90, -90)
+            path.arcTo(
+                QRectF(box.right() - 2 * top_right, box.top(), 2 * top_right, 2 * top_right),
+                90,
+                -90,
+            )
         else:
             path.lineTo(box.right(), box.top())
         path.lineTo(box.right(), box.bottom() - bottom_right)
@@ -96,7 +100,9 @@ def rounded_rect_path(
         path.lineTo(box.left() + bottom_left, box.bottom())
         if bottom_left > 0:
             path.arcTo(
-                QRectF(box.left(), box.bottom() - 2 * bottom_left, 2 * bottom_left, 2 * bottom_left),
+                QRectF(
+                    box.left(), box.bottom() - 2 * bottom_left, 2 * bottom_left, 2 * bottom_left
+                ),
                 270,
                 -90,
             )

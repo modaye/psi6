@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QEvent, QPointF
 from PySide6.QtGui import QPainterPath, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from psi6.theme.paint import as_color, create_painter
 from psi6.theme.runtime import token_color
+
+_THEME_EVENTS = {QEvent.Type.PaletteChange, QEvent.Type.StyleChange}
 
 
 class Sparkline(QWidget):
@@ -31,7 +33,12 @@ class Sparkline(QWidget):
         self._values = [float(item) for item in values]
         self.update()
 
-    def paintEvent(self, event) -> None:  # noqa: ANN001
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() in _THEME_EVENTS:
+            self.update()
+
+    def paintEvent(self, event) -> None:
         del event
         if len(self._values) < 2:
             return

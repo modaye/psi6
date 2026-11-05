@@ -6,9 +6,9 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QLineEdit, QWidget
 
+from psi6.icons.render import pixmap_for
 from psi6.theme.runtime import token_int
 from psi6.ui.icon import token_color
-from psi6.icons.render import pixmap_for
 
 
 class SearchField(QLineEdit):
@@ -36,7 +36,7 @@ class SearchField(QLineEdit):
 
         return self.text().strip()
 
-    def changeEvent(self, event) -> None:  # noqa: ANN001
+    def changeEvent(self, event) -> None:
         super().changeEvent(event)
         self._sync_leading()
 

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from pydantic import BaseModel
-from pytestqt.qtbot import QtBot
 from PySide6.QtWidgets import QVBoxLayout, QWidget
+from pytestqt.qtbot import QtBot
 
 from psi6.runtime.app import App
 from psi6.ui.form import field_switch, pydantic_form

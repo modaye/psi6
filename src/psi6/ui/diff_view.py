@@ -37,6 +37,8 @@ class DiffView(QScrollArea):
     def clear(self) -> None:
         while self._column.count() > 1:
             item = self._column.takeAt(0)
+            if item is None:
+                break
             widget = item.widget()
             if widget is not None:
                 widget.hide()

@@ -20,7 +20,7 @@ def test_register_icon_overrides_builtin() -> None:
     original = svg_for("search")
     register_icon("search", '<circle cx="12" cy="12" r="4"/>')
     try:
-        assert "r=\"4\"" in svg_for("search")
+        assert 'r="4"' in svg_for("search")
         assert svg_for("search") != original
     finally:
         clear_icon_overrides()
