@@ -316,6 +316,13 @@ def test_stepper_diff_and_changes(qtbot: QtBot) -> None:
     assert stepper.current_index() == 0
     stepper.next()
     assert stepper.current_index() == 1
+    seen: list[int] = []
+    stepper.clicked.connect(seen.append)
+    stepper.resize(420, 48)
+    stepper.show()
+    qtbot.mouseClick(stepper._nodes[2], Qt.MouseButton.LeftButton)
+    assert seen == [2]
+    assert stepper.current_index() == 1
     diff = DiffView()
     qtbot.addWidget(diff)
     diff.set_lines([("+", "added"), ("-", "removed"), (" ", "same")])

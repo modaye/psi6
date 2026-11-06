@@ -58,22 +58,15 @@ class Sidebar(QWidget):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._buttons: dict[str, QPushButton] = {}
-        for index, item in enumerate(destinations):
-            button = QPushButton(f"  {item.title}")
-            button.setObjectName("psi6NavItem")
-            apply_psi6_button_style(button)
-            button.setCheckable(True)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setAccessibleName(item.title)
-            button.setProperty("psi6NavTitle", item.title)
-            button.setProperty("psi6IconName", item.icon)
-            button.setProperty("compact", False)
-            self._group.addButton(button, index)
-            button.clicked.connect(lambda _=False, page_id=item.page_id: self._emit(page_id))
+        for item in destinations:
+            button = self._make_button(item)
             root.addWidget(button)
             self._buttons[item.page_id] = button
-            self._paint_nav_icon(button, item.icon)
         root.addStretch()
+        self._pinned_buttons: dict[str, QPushButton] = {}
+        self._pinned = QVBoxLayout()
+        self._pinned.setSpacing(4)
+        root.addLayout(self._pinned)
         self._toggle = IconButton("sidebar", label="收起侧栏")
         self._toggle.clicked.connect(self.toggle_compact)
         root.addWidget(self._toggle, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -94,7 +87,7 @@ class Sidebar(QWidget):
         changed = compact != self._compact
         self._compact = compact
         self._heading.setVisible(not compact)
-        for button in self._buttons.values():
+        for button in (*self._buttons.values(), *self._pinned_buttons.values()):
             title = button.property("psi6NavTitle")
             label = title if isinstance(title, str) else button.text()
             button.setProperty("compact", compact)
@@ -106,6 +99,11 @@ class Sidebar(QWidget):
             else:
                 button.setText(f"  {label}")
                 button.setToolTip("")
+        for index in range(self._pinned.count()):
+            pinned = self._pinned.itemAt(index)
+            widget = pinned.widget() if pinned is not None else None
+            if isinstance(widget, QLabel):
+                widget.setVisible(not compact)
         hint = "展开侧栏" if compact else "收起侧栏"
         self._toggle.setToolTip(hint)
         self._toggle.setAccessibleName(hint)
@@ -150,9 +148,52 @@ class Sidebar(QWidget):
         self._width_ani.start()
 
     def select(self, page_id: str) -> None:
-        button = self._buttons.get(page_id)
+        button = self._buttons.get(page_id) or self._pinned_buttons.get(page_id)
         if button is not None:
             button.setChecked(True)
+
+    def set_pinned(self, items: Sequence[NavDestination]) -> None:
+        """替换折叠按钮上方的快捷项，例如最近打开的任务。
+
+        再次调用会换掉上一组。点选后同样发出 ``destination_changed``。
+        """
+
+        while self._pinned.count():
+            item = self._pinned.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is None:
+                continue
+            if isinstance(widget, QPushButton):
+                self._group.removeButton(widget)
+            widget.hide()
+            widget.deleteLater()
+        self._pinned_buttons.clear()
+        if items and not self._compact:
+            caption = QLabel("最近使用")
+            caption.setObjectName("psi6Hint")
+            self._pinned.addWidget(caption)
+        for item in items:
+            button = self._make_button(item)
+            self._pinned.addWidget(button)
+            self._pinned_buttons[item.page_id] = button
+
+    def _make_button(self, item: NavDestination) -> QPushButton:
+        button = QPushButton(f"  {item.title}")
+        button.setObjectName("psi6NavItem")
+        apply_psi6_button_style(button)
+        button.setCheckable(True)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setAccessibleName(item.title)
+        button.setProperty("psi6NavTitle", item.title)
+        button.setProperty("psi6IconName", item.icon)
+        button.setProperty("compact", self._compact)
+        self._group.addButton(button)
+        button.clicked.connect(lambda _=False, page_id=item.page_id: self._emit(page_id))
+        self._paint_nav_icon(button, item.icon)
+        if self._compact:
+            button.setText("")
+            button.setToolTip(item.title)
+        return button
 
     def _emit(self, page_id: str) -> None:
         self.destination_changed.emit(page_id)
@@ -165,7 +206,7 @@ class Sidebar(QWidget):
     def refresh_icons(self) -> None:
         """主题切换后重绘侧栏图标。"""
 
-        for button in self._buttons.values():
+        for button in (*self._buttons.values(), *self._pinned_buttons.values()):
             name = button.property("psi6IconName")
             if isinstance(name, str):
                 self._paint_nav_icon(button, name)
@@ -205,6 +246,11 @@ class AppShell(QWidget):
 
     def set_sidebar_compact(self, compact: bool) -> None:
         self.sidebar.set_compact(compact)
+
+    def set_pinned(self, items: Sequence[NavDestination]) -> None:
+        """侧栏底部的快捷项，用来放最近任务。未知页面编号不会切换内容栈。"""
+
+        self.sidebar.set_pinned(items)
 
     def add_page(self, page_id: str, widget: QWidget) -> None:
         """注册一页。``page_id`` 必须出现在 destinations 中。"""

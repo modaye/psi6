@@ -11,9 +11,13 @@ from psi6.ui.icon import Icon
 
 
 class Stepper(QWidget):
-    """水平步骤：当前步高亮，已完成显示勾。"""
+    """水平步骤：当前步高亮，已完成显示勾。
+
+    点击某一步发出 ``clicked``，不自己改当前步。页面决定能不能跳。
+    """
 
     current_changed = Signal(int)
+    clicked = Signal(int)
 
     def __init__(self, steps: Sequence[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -30,6 +34,7 @@ class Stepper(QWidget):
                 rule.setObjectName("psi6Hint")
                 self._row.addWidget(rule)
             node = _StepNode(index + 1, title)
+            node.clicked.connect(lambda i=index: self.clicked.emit(i))
             self._nodes.append(node)
             self._row.addWidget(node)
         self._row.addStretch()
@@ -64,9 +69,12 @@ class Stepper(QWidget):
 
 
 class _StepNode(QWidget):
+    clicked = Signal()
+
     def __init__(self, number: int, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("psi6StepNode")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._number = number
         row = QHBoxLayout(self)
         row.setContentsMargins(4, 2, 8, 2)
@@ -81,6 +89,12 @@ class _StepNode(QWidget):
         self._check.hide()
         self._title = QLabel(title)
         row.addWidget(self._title)
+
+    def mouseReleaseEvent(self, event) -> None:
+        inside = self.rect().contains(event.position().toPoint())
+        if event.button() == Qt.MouseButton.LeftButton and inside:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
 
     def set_state(self, state: str) -> None:
         self.setProperty("state", state)

@@ -53,6 +53,26 @@ def test_app_shell_switches_pages(qtbot: QtBot) -> None:
     assert shell.sidebar._heading.isHidden()
 
 
+def test_pinned_shortcuts_keep_their_own_page_id(qtbot: QtBot) -> None:
+    """侧栏底部的最近任务发出自己的编号，未知编号不会把内容栈切走。"""
+
+    shell = AppShell((NavDestination("home", "工作台", "grid"),), title="本地工作空间")
+    home = QLabel("home")
+    shell.add_page("home", home)
+    seen: list[str] = []
+    shell.sidebar.destination_changed.connect(seen.append)
+    shell.set_pinned((NavDestination("task:1", "客户通知", "file"),))
+    qtbot.addWidget(shell)
+    shell.show_page("home")
+    shell.sidebar._pinned_buttons["task:1"].click()
+    assert seen[-1] == "task:1"
+    assert shell.current_id() == "home"
+    shell.set_pinned((NavDestination("task:2", "另一项", "file"),))
+    assert "task:1" not in shell.sidebar._pinned_buttons
+    shell.sidebar.select("task:2")
+    assert shell.sidebar._pinned_buttons["task:2"].isChecked()
+
+
 def test_transport_and_chat_and_tiles(qtbot: QtBot) -> None:
     bar = TransportBar()
     qtbot.addWidget(bar)
