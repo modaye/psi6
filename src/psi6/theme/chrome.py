@@ -21,6 +21,7 @@ from psi6.theme.tokens import Tokens
 SEARCH_PREFIX = "psi6icon"
 _CACHE_MAX_AGE = 30 * 24 * 60 * 60
 _pruned = False
+_IMAGES: dict[tuple[int, int], dict[str, str]] = {}
 
 
 def cache_dir() -> Path:
@@ -81,7 +82,20 @@ def qss_icon_ref(name: str, *, color: str, size: int) -> str:
 
 
 def chrome_images(tokens: Tokens) -> dict[str, str]:
-    """下拉与步进箭头的 QSS 图。"""
+    """下拉与步进箭头的 QSS 图。同一套 token 只算一次，避免换肤时反复读盘比对。"""
+
+    key = (hash(tokens.resolve_states()), tokens.icon_size)
+    cached = _IMAGES.get(key)
+    if cached is not None:
+        return dict(cached)
+    images = _build_chrome_images(tokens)
+    if len(_IMAGES) > 16:
+        _IMAGES.clear()
+    _IMAGES[key] = dict(images)
+    return images
+
+
+def _build_chrome_images(tokens: Tokens) -> dict[str, str]:
 
     size = max(12, min(tokens.icon_size, 16))
     # 页签关闭按钮：QSS 一旦写 background / border / image 就会接管掉 Qt 原生

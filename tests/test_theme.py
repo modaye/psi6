@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -331,6 +332,30 @@ def test_theme_switch_restyles_themed_buttons(qtbot: QtBot, tmp_path: Path) -> N
         )
     # 幽灵按钮的文字也要换成深色主题的浅色，否则深底上读不出来
     assert tokens.color_text in dark_css[1]
+
+
+def test_many_themed_buttons_restyle_without_reentry(qtbot: QtBot, tmp_path: Path) -> None:
+    """一棵控件树上的主题按钮换肤时，每个按钮只写一次样式。"""
+
+    from PySide6.QtWidgets import QVBoxLayout, QWidget
+
+    from psi6.ui.buttons import primary_button
+
+    app = App(f"psi6-restyle-many-{tmp_path.name}", theme="light", config_root=tmp_path)
+    host = QWidget()
+    layout = QVBoxLayout(host)
+    buttons = [primary_button(f"开始{index}") for index in range(40)]
+    for button in buttons:
+        layout.addWidget(button)
+    host.show()
+    qtbot.addWidget(host)
+    started = time.perf_counter()
+    app.set_theme("dark")
+    elapsed = time.perf_counter() - started
+    assert elapsed < 1.5
+    color = app.tokens.color_primary
+    assert color in buttons[0].styleSheet()
+    assert color in buttons[-1].styleSheet()
 
 
 def test_tokens_overlay_rejects_unknown_keys() -> None:

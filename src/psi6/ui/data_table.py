@@ -263,6 +263,8 @@ class DataTable(QWidget):
         self._busy_on = False
         self._history: EditHistory | None = None
         self._move_epoch = 0
+        # 行数据换过之后列宽要重新量一次；换主题不动它。
+        self._dirty_widths = False
         self._empty_title = empty_title
         self._empty_hint = empty_hint
         layout = QVBoxLayout(self)
@@ -367,6 +369,7 @@ class DataTable(QWidget):
 
     def set_rows(self, rows: Sequence[Mapping[str, Any] | BaseModel]) -> None:
         self._move_epoch += 1
+        self._dirty_widths = True
         self._rows = [_as_mapping(row) for row in rows]
         if not self._columns_locked:
             # 自动推导列时保留已有的显隐与顺序：新数据多出来的列追加在末尾，
@@ -634,6 +637,8 @@ class DataTable(QWidget):
         self._sort_descending = False
         if not self._columns_locked:
             self._columns = []
+        else:
+            self._dirty_widths = True
         self._render(keep_view=False)
 
     def set_busy(self, busy: bool, message: str = "正在处理…") -> None:
@@ -676,12 +681,28 @@ class DataTable(QWidget):
             mode = (
                 QHeaderView.ResizeMode.Stretch
                 if column.stretch
-                else QHeaderView.ResizeMode.ResizeToContents
+                else QHeaderView.ResizeMode.Interactive
             )
             header.setSectionResizeMode(index, mode)
             stretch_done = stretch_done or column.stretch
         if self._columns and not stretch_done:
             header.setStretchLastSection(True)
+        # ``ResizeToContents`` 会让每次换主题都重新量一遍所有单元格：Qt 重打磨
+        # 整个控件树时会把列宽重算算进去，829 个控件能拖到 1.2 秒。这里量一次
+        # 就固定下来，行数据变化时再量。
+        self._measure_columns()
+
+    def _measure_columns(self) -> None:
+        """按当前内容量一次列宽，之后保持固定，用户仍可以拖动。"""
+
+        header = self._table.horizontalHeader()
+        for index, column in enumerate(self._columns):
+            if column.stretch:
+                continue
+            header.setSectionResizeMode(index, QHeaderView.ResizeMode.ResizeToContents)
+            width = header.sectionSize(index)
+            header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
+            header.resizeSection(index, width)
 
     def _cycle_sort(self, section: int) -> None:
         if section < 0 or section >= len(self._columns):
@@ -761,6 +782,9 @@ class DataTable(QWidget):
         self._apply_sort_indicator()
         self._sync_empty()
         self._sync_reorder()
+        if self._dirty_widths:
+            self._dirty_widths = False
+            self._measure_columns()
 
     def _selected_raw(self) -> list[int]:
         """当前选中行对应的 ``_rows`` 原始索引。"""

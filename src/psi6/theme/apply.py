@@ -20,6 +20,9 @@ _FAMILY_RE = re.compile(r'"[^"]*"|\'[^\']*\'|[^,]+')
 # 存成 QApplication 的 property，让逐控件重刷按钮的所有路径（restyle /
 # PaletteChange 事件过滤器）都读到同一份开关。
 _FOCUS_RING_KEY = "psi6FocusRingEnabled"
+_FUSION_KEY = "psi6FusionStyle"
+# setStyleSheet 会同步再发 PaletteChange。正在写的按钮记在这里，避免过滤器把自己叫进去。
+_BUTTON_STYLE_DEPTH: set[int] = set()
 
 _FOCUS_SELECTORS: dict[str, str] = {
     "inputs": (
@@ -290,6 +293,9 @@ QLabel#psi6Hint, QLabel#psi6SectionHint, QLabel#psi6EmptyHint, QLabel#psi6Breadc
     color: {t.color_muted};
     font-size: {t.font_size_sm}px;
 }}
+QLabel#psi6Hint[tone="success"] {{
+    color: {t.color_primary};
+}}
 QLabel#psi6Error {{
     color: {t.color_danger};
     font-size: {t.font_size_sm}px;
@@ -299,6 +305,9 @@ QLabel#psi6FormGroup, QLabel#psi6BreadcrumbCurrent {{
     font-weight: {title_w};
     font-size: {title_fs}px;
     color: {t.color_text};
+}}
+QLabel#psi6SectionTitle, QLabel#psi6EmptyTitle {{
+    font-size: {t.font_size + 2}px;
 }}
 QLabel#psi6StatSuccess {{ color: {t.color_success}; font-weight: {title_w}; }}
 QLabel#psi6StatWarning {{ color: {t.color_warning}; font-weight: {title_w}; }}
@@ -317,6 +326,17 @@ QDateEdit, QTimeEdit, QDateTimeEdit {{
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover,
 QPlainTextEdit:hover, QTextEdit:hover, QLineEdit[psi6State="hover"] {{
     border-color: {t.color_primary};
+}}
+QWidget#psi6Stage {{
+    background: {t.color_bg};
+    border-radius: {r}px;
+}}
+QPlainTextEdit#psi6Paper, QPlainTextEdit#psi6Paper:hover, QPlainTextEdit#psi6Paper:focus {{
+    background: {t.color_surface};
+    border: none;
+    padding: 28px 36px;
+    color: {t.color_text};
+    font-size: {t.font_size}px;
 }}
 QSplitter#psi6WorkspaceSplit::handle {{
     background: {t.color_border_subtle};
@@ -395,13 +415,13 @@ QWidget#psi6DropZone[pressed="true"] {{
 }}
 {focus["dropzone"]}
 QWidget#psi6DropZoneIcon {{
-    background: {t.color_sunken};
-    border: 1px solid {t.color_border};
-    border-radius: {max(r + 6, 10)}px;
+    background: {t.color_selected};
+    border: none;
+    border-radius: {max(r + 2, 8)}px;
 }}
 QLabel#psi6DropZoneTitle {{
     color: {t.color_text};
-    font-size: {title_fs}px;
+    font-size: {t.font_size}px;
     font-weight: {title_w};
 }}
 QLabel#psi6DropZoneHint {{
@@ -460,7 +480,6 @@ QTableWidget, QTableView, QTreeView, QListView {{
     outline: 0;
 }}
 QTableWidget, QTableView {{
-    font-family: {t.font_mono};
     font-size: {t.font_size_sm}px;
 }}
 QTableView::item, QTreeView::item, QListView::item {{
@@ -548,8 +567,8 @@ QLabel#psi6Badge {{
     max-height: 22px;
 }}
 QLabel#psi6Badge[tone="success"] {{
-    background: {t.color_success};
-    color: {t.color_on_primary};
+    background: {t.color_selected};
+    color: {t.color_primary};
 }}
 QLabel#psi6Badge[tone="warning"] {{
     background: {t.color_warning};
@@ -751,11 +770,74 @@ QWidget#psi6Sidebar {{
     background: {t.color_sidebar};
     border-right: 1px solid {t.color_border};
 }}
-QLabel#psi6SidebarTitle {{
+QLabel#psi6SidebarTitle, QLabel#psi6BrandTitle {{
     font-weight: {title_w};
-    font-size: {title_fs}px;
+    font-size: {t.font_size + 4}px;
     color: {t.color_text};
-    padding: 4px 4px 12px 4px;
+    background: transparent;
+    padding: 0;
+}}
+QLabel#psi6Eyebrow {{
+    color: {t.color_muted};
+    font-size: {t.font_size_sm}px;
+    font-weight: {title_w};
+    background: transparent;
+    letter-spacing: 1px;
+}}
+QLabel#psi6Display {{
+    font-size: {title_fs + 4}px;
+    font-weight: {title_w};
+    color: {t.color_text};
+    background: transparent;
+}}
+QLineEdit#psi6TitleInput, QLineEdit#psi6TitleInput:hover, QLineEdit#psi6TitleInput:focus {{
+    border: none;
+    background: transparent;
+    font-size: {title_fs + 2}px;
+    font-weight: {title_w};
+    padding: 0;
+    min-height: 28px;
+}}
+QLabel#psi6NavSection {{
+    color: {t.color_muted};
+    font-size: {t.font_size_sm}px;
+    font-weight: {title_w};
+    background: transparent;
+    padding: 14px 8px 4px 8px;
+}}
+QWidget#psi6BrandMark {{
+    background: {t.color_selected};
+    border-radius: 11px;
+}}
+QWidget#psi6MetricIcon {{
+    background: {t.color_selected};
+    border-radius: 7px;
+}}
+QLabel#psi6MiniMark {{
+    background: {t.color_selected};
+    color: {t.color_primary};
+    border-radius: 6px;
+    font-weight: {title_w};
+}}
+QWidget#psi6ContentHeader {{
+    background: {t.color_surface};
+    border-bottom: 1px solid {t.color_border};
+}}
+QWidget#psi6Callout {{
+    background: {t.color_bg};
+    border-radius: {r}px;
+}}
+QWidget#psi6ListRow {{
+    background: transparent;
+    border-bottom: 1px solid {t.color_border_subtle};
+}}
+QWidget#psi6ListRow:hover {{
+    background: {t.color_hover};
+}}
+QWidget#psi6Stepper {{
+    background: {t.color_surface};
+    border: 1px solid {t.color_border};
+    border-radius: {r}px;
 }}
 QToolButton#psi6IconButton {{
     border: 1px solid transparent;
@@ -783,15 +865,14 @@ QLabel#psi6PageHint {{
     font-size: {t.font_size_sm}px;
     font-weight: {body_w};
 }}
-QWidget#psi6StatCard {{
+QWidget#psi6StatCard, QWidget#psi6Panel {{
     background: {t.color_surface};
     border: 1px solid {t.color_border};
     border-radius: {r}px;
 }}
 QLabel#psi6StatValue {{
-    font-size: {title_fs}px;
+    font-size: {title_fs + 4}px;
     font-weight: {title_w};
-    font-family: {t.font_mono};
 }}
 QWidget#psi6ToolTile {{
     background: {t.color_surface};
@@ -986,13 +1067,24 @@ QLabel#psi6DiffCtx {{
     color: {t.color_text};
 }}
 QLabel#psi6StepMark {{
-    border-radius: 10px;
+    border-radius: 13px;
     background: {t.color_hover};
     color: {t.color_muted};
     font-size: {t.font_size_sm}px;
     font-weight: 600;
 }}
-QWidget#psi6StepNode[state="current"] QLabel#psi6StepMark {{
+QLabel#psi6StepTitle {{
+    font-weight: {title_w};
+    font-size: {t.font_size}px;
+    color: {t.color_text};
+    background: transparent;
+}}
+QWidget#psi6StepNode[state="todo"] QLabel#psi6StepTitle {{
+    color: {t.color_muted};
+    font-weight: {body_w};
+}}
+QWidget#psi6StepNode[state="current"] QLabel#psi6StepMark,
+QWidget#psi6StepNode[state="done"] QLabel#psi6StepMark {{
     background: {t.color_primary};
     color: {t.color_on_primary};
 }}
@@ -1033,9 +1125,13 @@ def apply_theme(
     publish_tokens(app, t)
     apply_theme_icons(icon_dir=t.icon_dir, icons=t.icons)
     app.setFont(build_font(t))
-    fusion = QStyleFactory.create("Fusion")
-    if fusion is not None:
-        app.setStyle(fusion)
+    # 样式表会把 Fusion 包进 QStyleSheetStyle，objectName 不再是 fusion。
+    # 重复 setStyle 会让整棵控件树再打磨一遍。
+    if not app.property(_FUSION_KEY):
+        fusion = QStyleFactory.create("Fusion")
+        if fusion is not None:
+            app.setStyle(fusion)
+            app.setProperty(_FUSION_KEY, True)
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window, QColor(t.color_bg))
     palette.setColor(QPalette.ColorRole.WindowText, QColor(t.color_text))
@@ -1064,13 +1160,35 @@ def apply_theme(
     app.setProperty(_RESOLVED_TOKENS_KEY, t)
     install_button_style_sync(app)
     app.setPalette(palette)
-    app.setStyleSheet(build_stylesheet(t, focus_ring=focus_ring))
+    _set_app_stylesheet(app, build_stylesheet(t, focus_ring=focus_ring))
+    # 先清空再写入时，Qt 只发 StyleChange，不发 FontChange / PaletteChange：
+    # 未显示的控件不会重新打磨字体，用 token 名写的控件样式也不会跟着换色。
+    # 这里显式补一遍，合计十几毫秒。
+    app.setFont(build_font(t))
+    for widget in app.allWidgets():
+        widget.ensurePolished()
+        app.sendEvent(widget, QEvent(QEvent.Type.FontChange))
     restyle_themed_buttons(app)
     refresh_metrics(app)
     for widget in app.topLevelWidgets():
         sync = getattr(widget, "sync_shape", None)
         if callable(sync):
             sync()
+
+
+def _set_app_stylesheet(app: QApplication, sheet: str) -> None:
+    """换一张全局样式表。
+
+    直接往非空样式表上换新内容时，Qt 会把新旧两套规则一起解析并重打磨整棵控件树，
+    组件库上要多花一秒多。先清空再写入只走一次。内容没变就完全跳过，因为 Qt 不做
+    这套比对。
+    """
+
+    if app.styleSheet() == sheet:
+        return
+    if app.styleSheet():
+        app.setStyleSheet("")
+    app.setStyleSheet(sheet)
 
 
 # ---------------------------------------------------------------------------
@@ -1095,6 +1213,8 @@ KNOWN_KINDS = {
 }
 _RESOLVED_TOKENS_KEY = "psi6ResolvedTokens"
 _style_filter: QObject | None = None
+# 同一套 token、同一种按钮，样式串相同。换肤时几十个按钮共用一份。
+_BUTTON_SHEETS: dict[tuple[str, int, bool], str] = {}
 
 
 def psi6_button_stylesheet(
@@ -1104,10 +1224,24 @@ def psi6_button_stylesheet(
 
     The widget styles itself, so selectors are plain ``QPushButton`` (plus
     attribute / pseudo-state variants). ``widget.setStyleSheet(result)`` applies
-    reliably regardless of the global sheet's cascade bug.
+    reliably regardless of the global sheet's cascade bug. 同一套 token 只生成一次。
     """
 
-    t = (tokens or DEFAULT_TOKENS).resolve_states()
+    resolved = (tokens or DEFAULT_TOKENS).resolve_states()
+    key = (kind, hash(resolved), focus_ring)
+    cached = _BUTTON_SHEETS.get(key)
+    if cached is not None:
+        return cached
+    sheet = _build_button_stylesheet(kind, resolved, focus_ring=focus_ring)
+    if len(_BUTTON_SHEETS) > 64:
+        _BUTTON_SHEETS.clear()
+    _BUTTON_SHEETS[key] = sheet
+    return sheet
+
+
+def _build_button_stylesheet(kind: str, t: Tokens, *, focus_ring: bool) -> str:
+    """按一套已解析的 token 拼出这一种按钮的样式表。"""
+
     r = t.radius
     ch = t.control_height
     ring = max(1, t.focus_ring_width)
@@ -1191,7 +1325,7 @@ QPushButton:disabled {{ background: {t.color_border}; color: {t.color_muted}; bo
     if kind == "psi6Ghost":
         return f"""\
 QPushButton {{
-    background: transparent;
+    background: {t.color_surface};
     border: 1px solid {t.color_control_border};
     color: {t.color_text};
 }}
@@ -1267,7 +1401,33 @@ QPushButton:pressed, QPushButton[psi6State="pressed"] {{ background: {t.color_pr
 QPushButton:checked, QPushButton[psi6State="selected"] {{ background: {t.color_selected}; color: {t.color_text}; font-weight: {title_w}; }}
 {nav_focus}
 QPushButton:disabled {{ color: {t.color_disabled}; background: transparent; }}
-QPushButton[compact="true"] {{ text-align: center; padding: 0; }}"""
+QPushButton[compact="true"] {{ text-align: center; padding: 0; }}
+QLabel#psi6NavLabel {{
+    color: {t.color_sidebar_text};
+    background: transparent;
+}}
+QPushButton:checked QLabel#psi6NavLabel {{
+    color: {t.color_primary};
+    font-weight: {title_w};
+}}
+QLabel#psi6NavCaption {{
+    color: {t.color_muted};
+    font-size: {t.font_size_sm}px;
+    background: transparent;
+}}
+QLabel#psi6NavBadge {{
+    background: {t.color_hover};
+    color: {t.color_muted};
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: {t.font_size_sm}px;
+}}
+QLabel#psi6MiniMark {{
+    background: {t.color_selected};
+    color: {t.color_primary};
+    border-radius: 6px;
+    font-weight: {title_w};
+}}"""
     return ""
 
 
@@ -1281,7 +1441,17 @@ def apply_psi6_button_style(widget, kind: str | None = None) -> None:
     tokens = app.property(_RESOLVED_TOKENS_KEY) if app is not None else None
     enabled = app.property(_FOCUS_RING_KEY) if app is not None else None
     focus_ring = True if enabled is None else bool(enabled)
-    widget.setStyleSheet(psi6_button_stylesheet(kind, tokens, focus_ring=focus_ring))
+    key = id(widget)
+    if key in _BUTTON_STYLE_DEPTH:
+        return
+    sheet = psi6_button_stylesheet(kind, tokens, focus_ring=focus_ring)
+    if widget.styleSheet() == sheet:
+        return
+    _BUTTON_STYLE_DEPTH.add(key)
+    try:
+        widget.setStyleSheet(sheet)
+    finally:
+        _BUTTON_STYLE_DEPTH.discard(key)
 
 
 def restyle_themed_buttons(app: QApplication) -> None:

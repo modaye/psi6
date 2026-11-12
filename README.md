@@ -2,7 +2,7 @@
 
 给编码 Agent 用的 PySide6 桌面框架：运行时、后台任务、Python 主题与窗口外壳。新窗口用 `Workspace` 放工具栏、面包屑和左右栏（栏可显隐，布局可持久化）；多份文档用 `TabView` 的标签页；结果用 `DataTable` 排序筛选；参数用 `pydantic_form`，校验错误留在字段下；侧栏换页用 `AppShell`。
 
-> **状态**：0.5.0 开发版。根包公开入口（`psi6.api.STABLE`）在 0.x 内职责不变；控件层（`psi6.ui`）可用但不逐个承诺稳定级别。色板与部分 token **尚未冻结**，主题相关字段可能随版本微调。详见「稳定边界」。
+> **状态**：0.6.0。根包公开入口（`psi6.api.STABLE`）在 0.x 内职责不变；控件层（`psi6.ui`）可用但不逐个承诺稳定级别。色板与部分 token **尚未冻结**，主题相关字段可能随版本微调。详见「稳定边界」。
 
 ## 要求与支持平台
 
@@ -47,11 +47,11 @@ raise SystemExit(app.run(window))
 
 浅色和深色是同一套语言。`style` 只选 `modern` 或 `compact`。具体色值还没冻结。
 
-## 稳定边界（0.5.0）
+## 稳定边界（0.6.0）
 
 - 根包只导出 `psi6.api.STABLE` 名单：`App`、`TaskRunner`、`TaskHandle`、`TaskStatus`、`JobOutcome`、`Theme`、`Tokens`、`contrast_notes`、`DesktopWindow`、`TitleBar`、`TrayIcon`。0.x 内职责不变，新增参数带默认值。其它控件从 `psi6.ui` 导入。
 - 以 `_` 开头的模块是内部实现，不要直接依赖。
-- 主题 `Tokens` 的字段名与 `Theme` 子类接口是稳定契约，但具体色值在 0.5 阶段仍可能调整（色板未冻结）。
+- 主题 `Tokens` 的字段名与 `Theme` 子类接口是稳定契约，但具体色值在 0.6 阶段仍可能调整（色板未冻结）。
 - 破坏性变更写入 `MIGRATION.md` 并升一个次版本。
 
 ## 一页窗口

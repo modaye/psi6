@@ -243,6 +243,11 @@ _USAGE: dict[str, tuple[str, str, str]] = {
         "自己控制弹出时机（例如托盘、标题栏）。",
         "容器右键（用 ``attach_context_menu``）。",
     ),
+    "clear_style": (
+        "去掉 ``set_style`` 写上的样式。",
+        "控件要回到主题默认。",
+        "自己清空样式表。",
+    ),
     "column_toggle_menu": (
         "列头右键用的「勾选显示哪些列」菜单项序列。",
         "表格列多，用户要自己挑显示哪几列。",
@@ -252,6 +257,11 @@ _USAGE: dict[str, tuple[str, str, str]] = {
         "``AppShell`` 的导航目标数据。",
         "构造 ``AppShell``。",
         "单页内的面包屑。",
+    ),
+    "Panel": (
+        "白底表面。",
+        "把一组说明或列表收成卡片。",
+        "自己写边框样式。",
     ),
     "PageHeader": (
         "页面标题、说明和图标。",
@@ -332,6 +342,11 @@ _USAGE: dict[str, tuple[str, str, str]] = {
         "分步向导指示条。点击发出 ``clicked``，不自己跳步。",
         "多步流程。",
         "页面切换本身。",
+    ),
+    "Style": (
+        "贴在单个控件上的字号、字重、字色和底色。",
+        "这一处要和旁边不同，或运行中改样式。",
+        "整页样式表。主题密度仍用 modern / compact。",
     ),
     "Switch": (
         "开关控件。",
@@ -482,6 +497,11 @@ _USAGE: dict[str, tuple[str, str, str]] = {
         "由模型构造 ``FormView``。",
         "任务参数。",
         "设置页（用 ``pydantic_settings``）。",
+    ),
+    "set_style": (
+        "给一个控件设置字号、字重、字色或底色。",
+        "同一页里各项样式不同，或随状态改样式。",
+        "在页面里写样式表。颜色用字面色或 token 名。",
     ),
     "pydantic_settings": (
         "由模型构造 ``SettingsPage``。",

@@ -71,6 +71,7 @@ class Icon(QWidget):
         self._explicit_size = size
         self._size = size if size is not None else _theme_icon_size()
         self._tone = normalize_tone(tone)
+        self._color_source: str | None = None
         self.setFixedSize(self._size, self._size)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
@@ -91,6 +92,25 @@ class Icon(QWidget):
         self._tone = normalize_tone(tone)
         self.update()
 
+    def set_color(self, color: str | None) -> None:
+        """指定这一个图标的颜色。``None`` 回到 ``tone``。
+
+        ``#RRGGBB`` 保持不变。``primary`` 或 ``color_primary`` 跟随当前主题。
+        """
+
+        self._color_source = color.strip() if isinstance(color, str) and color.strip() else None
+        self._apply_color()
+        self.update()
+
+    def _apply_color(self) -> None:
+        source = getattr(self, "_color_source", None)
+        if not source:
+            self.setProperty("psi6IconColor", "")
+            return
+        from psi6.ui.style import resolve_color
+
+        self.setProperty("psi6IconColor", resolve_color(source))
+
     def name(self) -> str:
         return self._name
 
@@ -98,6 +118,7 @@ class Icon(QWidget):
         super().changeEvent(event)
         if event.type() in _ICON_EVENTS:
             self._sync_metrics()
+            self._apply_color()
             self.update()
 
     def _sync_metrics(self) -> None:

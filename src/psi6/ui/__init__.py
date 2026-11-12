@@ -7,7 +7,7 @@ from psi6.ui.busy import BusyOverlay
 from psi6.ui.buttons import danger_button, ghost_button, link_button, primary_button, text_button
 from psi6.ui.chat import Composer, MessageList
 from psi6.ui.check_list import CheckItem, CheckList
-from psi6.ui.chrome import PageHeader, StatCard
+from psi6.ui.chrome import PageHeader, Panel, StatCard
 from psi6.ui.collapsible import Collapsible
 from psi6.ui.column_picker import ColumnPicker, ColumnState, column_toggle_menu
 from psi6.ui.command_palette import Command, CommandPalette
@@ -51,6 +51,7 @@ from psi6.ui.sparkline import Sparkline
 from psi6.ui.status_badge import StatusBadge
 from psi6.ui.status_progress import StatusProgress
 from psi6.ui.stepper import Stepper
+from psi6.ui.style import Style, clear_style, set_style
 from psi6.ui.switch import Switch
 from psi6.ui.tab_view import TabView
 from psi6.ui.tag import Tag, TagRow
@@ -106,6 +107,7 @@ __all__ = [
     "MessageList",
     "NavDestination",
     "PageHeader",
+    "Panel",
     "PathState",
     "Playlist",
     "PressScaleFilter",
@@ -121,6 +123,7 @@ __all__ = [
     "StatusBadge",
     "StatusProgress",
     "Stepper",
+    "Style",
     "Switch",
     "TabView",
     "TableColumn",
@@ -139,6 +142,7 @@ __all__ = [
     "TreeView",
     "attach_context_menu",
     "build_menu",
+    "clear_style",
     "column_toggle_menu",
     "confirm",
     "danger_button",
@@ -155,6 +159,7 @@ __all__ = [
     "primary_button",
     "pydantic_form",
     "pydantic_settings",
+    "set_style",
     "text_button",
     "warn",
     "Workspace",

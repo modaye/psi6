@@ -53,6 +53,37 @@ def test_app_shell_switches_pages(qtbot: QtBot) -> None:
     assert shell.sidebar._heading.isHidden()
 
 
+def test_sidebar_brand_badge_and_slots(qtbot: QtBot) -> None:
+    """品牌、计数、顶栏按钮和内容头是壳的槽位，业务不用自己拼侧栏。"""
+
+    shell = AppShell(
+        (NavDestination("home", "工作台", "grid", section="工作空间"),),
+        title="Paperflow",
+    )
+    shell.set_brand("Paperflow", "DOCUMENT WORKSPACE")
+    shell.set_badge("home", "12")
+    action = QLabel("新建")
+    footer = QLabel("帮助")
+    crumbs = QLabel("工作空间")
+    shell.set_header_widget(action)
+    shell.set_footer_widget(footer)
+    shell.set_content_header(crumbs)
+    qtbot.addWidget(shell)
+    assert shell.sidebar._heading.text() == "Paperflow"
+    assert shell.sidebar._caption.text() == "DOCUMENT WORKSPACE"
+    badge = shell.sidebar._buttons["home"].findChild(QLabel, "psi6NavBadge")
+    assert badge is not None and badge.text() == "12"
+    assert shell.sidebar._section_labels[0].text() == "工作空间"
+    assert not action.isHidden()
+    assert not footer.isHidden()
+    assert not crumbs.isHidden()
+    shell.set_sidebar_compact(True)
+    qtbot.waitUntil(lambda: shell.sidebar.is_compact())
+    assert shell.sidebar._header_host.isHidden()
+    assert shell.sidebar._footer_host.isHidden()
+    assert not crumbs.isHidden()
+
+
 def test_pinned_shortcuts_keep_their_own_page_id(qtbot: QtBot) -> None:
     """侧栏底部的最近任务发出自己的编号，未知编号不会把内容栈切走。"""
 
@@ -71,6 +102,11 @@ def test_pinned_shortcuts_keep_their_own_page_id(qtbot: QtBot) -> None:
     assert "task:1" not in shell.sidebar._pinned_buttons
     shell.sidebar.select("task:2")
     assert shell.sidebar._pinned_buttons["task:2"].isChecked()
+    shell.set_pinned((NavDestination("task:3", "客户通知", "file", caption="今天", mark="W"),))
+    letter = shell.pinned_button("task:3")
+    assert letter is not None
+    mark = letter.findChild(QLabel, "psi6MiniMark")
+    assert mark is not None and mark.text() == "W"
 
 
 def test_transport_and_chat_and_tiles(qtbot: QtBot) -> None:
