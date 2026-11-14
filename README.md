@@ -212,7 +212,7 @@ app.density_changed.connect(on_density_changed)
 
 ## 键盘焦点环
 
-焦点环默认**关闭**：`App` 应用里 Tab 聚焦不画彩色环，控件边框、间距和高度完全不变，只用 `outline: none` 抑制 Qt 原生焦点框。需要键盘可见性（纯键盘操作、无障碍需求）时显式开启：
+焦点环默认**关闭**。有的控件上环很难看。需要对照键盘焦点时再打开。打开之后，主按钮和危险按钮预留一圈透明边，并把 2px 父级表面留在外边距里，聚焦只改边的颜色，控件外框尺寸不变。
 
 ```python
 App("demo", theme="light", focus_ring=True)
@@ -221,9 +221,11 @@ app.focus_ring               # False / True
 app.set_focus_ring(True)     # 运行时开关，立即重套主题
 ```
 
-开关同时作用于全局 QSS 和「按控件样式化」的 8 组主题按钮；`set_theme`、系统浅深色跟随、响应式密度切换都不会重置它。`build_stylesheet(tokens, focus_ring=True)` 与 `psi6_button_stylesheet(kind, tokens, focus_ring=True)` 两个纯函数默认仍生成焦点环，方便单独预览与测试。
+开关同时作用于全局 QSS 和按控件样式化的主题按钮。`set_theme`、系统浅深色跟随、响应式密度切换都不会重置它。`build_stylesheet` 与 `psi6_button_stylesheet` 默认也生成焦点环。
 
-组件目录 `python -m psi6 kit` 为展示「状态矩阵」页的焦点态显式开启，并在「主题」页提供 关闭 / 开启 两个按钮，可现场对比。
+Qt 样式表没有 `outline`，也画不出填充和环之间的缝。父级表面缝因此在环的外侧。错误字段聚焦时保留红色控件边，错误句子仍在字段下。
+
+样例 `python -m psi6 kit` 默认为石墨铜。带状态矩阵的组件目录是 `python -m psi6 kit --workbench`，主题页可以现场关闭或打开焦点环。
 
 ## 多视图文档与面板布局
 
@@ -317,7 +319,7 @@ picker.columns_changed.connect(table.set_visible_columns)
 - **悬浮球**：`app.run(window, float_ball=True)`。圆标置顶，不放进页面布局；拖动换位置，单击显示或隐藏主窗口，右键退出。不依赖系统托盘。`set_status` 在圆标右下角加一个主色点。
 - **单实例**：`single_instance=True` 加锁，重复启动只激活已有窗口。
 - **记住几何与路径**：`restore_geometry=True` 读写窗口几何；`remember_path` / `recalled_path` 记界面路径到 `QSettings`。
-- **键盘焦点环**：默认关闭，聚焦不改外观与尺寸；需要键盘可见性时用 `App(..., focus_ring=True)` 或 `app.set_focus_ring(True)` 开启（见上一节）。
+- **键盘焦点环**：默认关闭。需要时用 `App(..., focus_ring=True)` 或 `app.set_focus_ring(True)`（见上一节）。
 - **一次打开多份文档 + 记住面板布局**：`TabView` 按 `key` 复用控件、可关闭可重排，`Workspace.set_pane_visible` 显隐栏，两者用 `save_state` / `restore_state` 把标签顺序与分栏显隐宽度写进 `ConfigStore`（见上一节）。
 - **结果表的右键操作**：`table.context_menu(builder)`，回调里用 `target.data` 拿行、用 `target.key` 拿可见行号（见上一节）。
 - **让用户自己选看哪几列**：`ColumnPicker` 接 `DataTable.columns()`，勾选显隐、上下调序，`columns_changed` 直接接 `set_visible_columns`，`save_state` / `restore_state` 记住选择（见上一节）。
@@ -341,7 +343,7 @@ python -m psi6.examples.custom_theme --check
 python -m psi6.examples.task_status --check
 ```
 
-`python -m psi6 kit` 打开组件与主题预览；`python -m psi6 file_index` 看开始/取消/状态栏进度/日志如何组合在一个窗口里。
+`python -m psi6 kit` 打开样例工作台；`python -m psi6 kit --workbench` 打开组件与主题预览；`python -m psi6 file_index` 看开始/取消/状态栏进度/日志如何组合在一个窗口里。
 
 关窗口、点取消、应用退出是三件事。
 

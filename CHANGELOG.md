@@ -1,5 +1,29 @@
 # 变更
 
+## 未发布
+
+- **焦点环改回默认关闭**。`App` 默认 `focus_ring=False`。需要对照键盘焦点时再打开。样式函数的默认仍是打开，组件目录为展示状态矩阵显式打开。
+- **单选选中改成同色的外环和圆心**。底是表面色，环和点都是 `color_primary`，中间留白。禁用时环和点都是 `color_muted`。复选框仍是主色填充加勾。
+- **样例工作台补全八页**。概览展示中性色、强调色、字号、三档圆角、平贴与浮起、两档动效时长。按钮页有变体、图标按钮尺寸、加载、标签和徽标。其余页补上输入状态、表格与树、页签与步骤、横幅与 Toast、分区与折叠。侧栏图标与页面对齐。
+- **侧栏选中竖条可以关掉**。`AppShell.set_nav_accent(False)` 去掉左侧 2px `color_primary`，选中填充还在，文字不位移。默认仍然打开，颜色跟当前主题。
+- **卡片按样例工作台来**。新增 `Card`：弱边 `color_border_subtle`，圆角仍是 `radius`。默认平贴。`elevated=True` 才加一层轻投影，这是页内唯一的阴影。`Panel` 继续做平面分区。文件索引和设置页不改成卡片墙。
+- **页签有滑动的活动指示器**。`UnderlineTabs` 是页内文字页签，底部 2px 主色条在 `motion_ms` 内滑到当前项。`TabView` 的文档页签同样有这条滑动底边。减少动效时直接到位。
+- **补上样例里还没有的图标**：`home`、`layers`、`bell`、`spark`、`menu`、`calendar`、`arrow-left`、`arrow-right`。
+- **按钮加载态**。`set_loading(button, True)` 在左侧画旋转圆弧，文字和变体颜色保留，点击、空格和回车被挡住。减少动效时圆弧停住。不要用 `setEnabled(False)`，那会变成灰色禁用。
+- **勾选框和单选框的焦点环改到整行外侧**。指示器边宽始终 1px。之前把环画成指示器的加粗边，勾选图被裁，失焦后旧边还留着。
+- **样例工作台替代组件目录的默认入口**。`python -m psi6 kit` 打开八页样例（概览、按钮、输入、数据、导航、反馈、容器、动效），默认石墨铜主题。带状态矩阵的组件目录改为 `python -m psi6 kit --workbench`。
+- **新增可选主题 `Graphite`**（`graphite`）。暖灰画布加低饱和铜，对应样例的 Graphite & Copper。不替换默认的纯白画布和蕨绿。样例警告色 `#A9761C` 配白字不够 4.5，主题里写成 `#8d6214`。
+- **原生控件补齐浅色与深色的接管**。`QCalendarWidget`（`QDateEdit` 的弹出面板）、`QSlider` 的垂直方向、`QTreeView` 的展开箭头、`QMenu` 的勾选与单选标记、`QTableView` / `QTreeView` 的左上角按钮、表头排序指示器都有了规则。之前这些段落会露出 Fusion 默认外观。日历、树箭头和菜单标记用 `chrome_images()` 生成的着色 SVG，高分屏不糊。
+- **样式表里的字面量圆角与字号偏移清空**。`apply.py` 不再写 `9px` / `7px` / `2px` 这类圆角，也不再用 `font_size + 4` 表达标题。圆角只有三档（控件 `radius`、指示器 `radius - 2`、窗口 `window_radius`），圆点、胶囊、滑块手柄从 `control_height_sm` / `icon_size` 推导。没有 Display 档，页面标题到 `font_size_title` 为止。`tests/test_theme.py` 扫源码守这条。
+- **`Tag` 的语气终于生效**。之前 `set_tone` 写了属性但没有对应规则，五种 `tone` 长得一样。现在成功、警告、错误、信息用对应语义色作字色，填充是该色与 `color_bg` 的弱混合；`neutral` 仍是中性。表格状态列因此可以用 `Tag` 而不是灰字。
+- **导航项选中补上主色竖条**。`color_selected` 对侧栏底的对比只有约 1.1，单靠填充分不出当前页。选中项现在是填充 + 左侧 2px `color_primary` 竖条 + 主色图标；聚焦时整圈环替换边框，竖条用 `:checked:focus` 补回来。竖条占 `border-left`，左侧内边距同步扣掉，选中前后文字不位移。
+- **Toast 改到窗口下角**，并支持悬停暂停：停表记住剩余时长，移开后按剩余时长继续而不是重新计满。栈底边让开状态栏，不压在 `StatusProgress` 上。
+- **统一的动效入口 `psi6.ui.motion`**。`animate` / `animate_value` / `stop` / `stop_all` / `easing` / `motion_enabled`。统一处理减少动效旁路、同一属性去重、运行期保活和时长取 token。`Switch`、`PressScaleFilter`、`AppShell` 侧栏收放已改走它，不再各自建 `QPropertyAnimation`。
+- **`App.set_reduced_motion(True)`** 是运行时总开关，也可以在构造时传 `reduced_motion=True`。它把 `Tokens.reduced_motion` 置 1 后重套主题，两档时长归零，功能不变。组件目录的主题页加了开关与一个可拨动的开关做对照。
+- **默认主题改成中性灰白，蕨绿只做强调。** 侧栏、悬停、输入槽不再带绿。成功色和品牌绿分开。浅色画布仍是纯白，深色仍在。
+- **焦点环可以打开**。`App` 默认关闭。样式函数默认仍生成环。主按钮和危险按钮把焦点色画在预留的边上，父级表面缝放在外侧边距，聚焦不改外框尺寸。禁用的主按钮不再保留主色填充。次按钮使用浮起填充和结构边，悬停只改填充。字段校验失败时输入边改为错误色，并保留字段下的说明。对比度诊断增加错误色对窗口底和卡片。黄铜主题的错误色改为 `#c7392e`，纸色底上才过 4.5。
+- **根包导出改为字面量惰性导入**。`from psi6 import App` 不变，`import psi6` 仍不加载界面。每个名字都写成 `from 模块 import 名字`，打包器能看见模块，不必另写打包钩子。
+
 ## 0.6.0
 
 - **单个控件可以自定样式**。`set_style` / `Style` 给这一个控件写字号、字重、字色和底色；颜色用 `#RRGGBB` 或 token 名，token 名在换主题后重算。`Icon.set_color` 同样接受字面色或 token 名。页面仍然不要自己写样式表。

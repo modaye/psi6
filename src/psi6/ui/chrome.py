@@ -5,7 +5,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from psi6.ui.icon import Icon
 from psi6.ui.sparkline import Sparkline
@@ -153,8 +162,45 @@ class StatCard(QWidget):
             self._spark.hide()
 
 
+class Card(QWidget):
+    """分组卡片。弱边、主题圆角，默认没有投影。
+
+    视觉以样例工作台的卡片为准：表面 ``color_surface``，边用更弱的
+    ``color_border_subtle``，圆角仍是 ``radius``，不再单开一档。
+    ``elevated=True`` 时加一层很轻的投影，这是页内唯一允许的阴影。
+    文件索引、设置和任务页仍然不用卡片铺满。平面分区继续用 ``Panel``。
+    """
+
+    def __init__(self, parent: QWidget | None = None, *, elevated: bool = False) -> None:
+        super().__init__(parent)
+        self.setObjectName("psi6Card")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setProperty("elevated", "true" if elevated else "false")
+        self.body = QVBoxLayout(self)
+        self.body.setContentsMargins(16, 16, 16, 16)
+        self.body.setSpacing(12)
+        self._shadow: QGraphicsDropShadowEffect | None = None
+        if elevated:
+            self._raise_card()
+
+    def elevated(self) -> bool:
+        """是否浮起。"""
+
+        return self.property("elevated") == "true"
+
+    def _raise_card(self) -> None:
+        effect = QGraphicsDropShadowEffect(self)
+        effect.setBlurRadius(16)
+        effect.setOffset(0, 2)
+        color = QColor("#1B1916")
+        color.setAlpha(40)
+        effect.setColor(color)
+        self._shadow = effect
+        self.setGraphicsEffect(effect)
+
+
 class Panel(QWidget):
-    """一块白底表面。首页卡片、设置分组和侧栏说明都用它，不用自己写样式。"""
+    """一块平面表面。设置分组和侧栏说明用它。需要弱边或浮起时用 ``Card``。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

@@ -27,7 +27,7 @@ def _probe(base: str, style: str) -> type[Theme]:
 def test_four_combinations_restyle_live_widgets(qtbot: QtBot, tmp_path: Path) -> None:
     """已创建的控件跟着主题切换，不留下上一套高度或画布色。"""
 
-    # App 默认不画焦点环；这里显式开启，继续覆盖四种组合下的 a11y 焦点样式。
+    # 显式打开焦点环，继续覆盖四种组合下的 a11y 焦点样式。
     app = App("psi6-four", theme="light", config_root=tmp_path, focus_ring=True)
     button = primary_button("开始")
     edit = QLineEdit()

@@ -61,6 +61,8 @@ class ToastCard(QWidget):
         super().__init__(parent)
         self.setObjectName("psi6Toast")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        # 悬停暂停要收到 enter/leave，不设 WA_Hover 时子控件会吞掉鼠标移动。
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         set_tone(self, tone)
 
@@ -87,8 +89,12 @@ class ToastCard(QWidget):
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self.dismiss)
-        if timeout_ms > 0:
-            self._timer.start(timeout_ms)
+        # 悬停暂停用的剩余时长。用户把鼠标停在卡片上时停表，移开再按剩余时间接着走，
+        # 而不是重新计满：长句子的通知不会因为看了一眼就再来一遍整个周期。
+        self._timeout_ms = max(0, int(timeout_ms))
+        self._remaining_ms = self._timeout_ms
+        if self._timeout_ms > 0:
+            self._timer.start(self._timeout_ms)
         # 高度按固定宽度算一次并缓存：析构期 sizeHint/heightForWidth 仍会被 Qt 调用，
         # 那时子控件（_label）可能已释放，访问它会触发 C 层段错误。缓存后热路径不再触碰子控件。
         self._natural_h = self._compute_natural_height(_TOAST_WIDTH)
@@ -142,6 +148,33 @@ class ToastCard(QWidget):
             return
         self._start_anim(self._current_h, 0, duration)
 
+    def enterEvent(self, event) -> None:  # type: ignore[override]
+        """鼠标进入：停表并记住剩余时长。"""
+
+        self._pause_timeout()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # type: ignore[override]
+        """鼠标离开：按剩余时长接着计时，不重新计满。"""
+
+        self._resume_timeout()
+        super().leaveEvent(event)
+
+    def _pause_timeout(self) -> None:
+        """停表并记下还剩多少毫秒。已经结束或被销毁时不动。"""
+
+        if self._dead or not self._timer.isActive():
+            return
+        self._remaining_ms = max(0, self._timer.remainingTime())
+        self._timer.stop()
+
+    def _resume_timeout(self) -> None:
+        """按剩余时长继续计时。从未启动过（``timeout_ms <= 0``）时保持不动。"""
+
+        if self._dead or self._timeout_ms <= 0 or self._timer.isActive():
+            return
+        self._timer.start(max(0, self._remaining_ms))
+
     def _start_anim(self, start: int, end: int, duration: int) -> None:
         self._anim_from = start
         self._anim_to = end
@@ -184,7 +217,7 @@ class ToastCard(QWidget):
 
 
 class ToastHost(QWidget):
-    """窗口级 Toast 栈。只占右上角，按内容长高，互不挤压。"""
+    """窗口级 Toast 栈。只占右下角，按内容长高，互不挤压。"""
 
     def __init__(self, window: QWidget, parent: QWidget | None = None) -> None:
         super().__init__(parent or window)
@@ -196,7 +229,8 @@ class ToastHost(QWidget):
         self._column = QVBoxLayout(self)
         self._column.setContentsMargins(0, 0, 0, 0)
         self._column.setSpacing(_CARD_GAP)
-        self._column.setAlignment(Qt.AlignmentFlag.AlignTop)
+        # 右下角堆叠：最新的在最下面，旧的往上顶。
+        self._column.setAlignment(Qt.AlignmentFlag.AlignBottom)
         window.installEventFilter(self)
         self.setFixedWidth(_TOAST_WIDTH)
         self.hide()
@@ -217,7 +251,7 @@ class ToastHost(QWidget):
         card.hide()
         card.closed.connect(lambda item=card: self._forget(item))
         card.resized.connect(self._place)
-        self._column.addWidget(card, alignment=Qt.AlignmentFlag.AlignTop)
+        self._column.addWidget(card, alignment=Qt.AlignmentFlag.AlignBottom)
         self._cards.append(card)
         self.show()
         self._place()
@@ -255,14 +289,20 @@ class ToastHost(QWidget):
         return total
 
     def _place(self) -> None:
+        """贴在窗口右下角。堆栈向上长高，不盖住底栏和状态栏。"""
+
         host = self._window
         margin = 16
-        y = margin
-        title = getattr(host, "title_bar", None)
-        if title is not None and title.isVisible():
-            y = title.height() + margin
         needed = self._content_height()
         self.setFixedSize(_TOAST_WIDTH, max(0, needed))
         x = max(margin, host.width() - _TOAST_WIDTH - margin)
+        # 底边让开状态栏：状态栏里可能放着 StatusProgress，通知不该压在进度上。
+        status = getattr(host, "statusBar", None)
+        status_h = 0
+        if callable(status):
+            bar = status()
+            if bar is not None and bar.isVisible():
+                status_h = bar.height()
+        y = max(margin, host.height() - needed - margin - status_h)
         self.move(x, y)
         self.raise_()

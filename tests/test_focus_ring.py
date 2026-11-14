@@ -1,4 +1,4 @@
-"""焦点环是 App 级可选能力：默认不画，需要键盘可见性时显式开启。"""
+"""焦点环默认关闭。``focus_ring=True`` 才画环，并且不改控件外框尺寸。"""
 
 from __future__ import annotations
 
@@ -81,13 +81,12 @@ def test_button_stylesheets_follow_the_switch() -> None:
     assert _RING in psi6_button_stylesheet("psi6NavItem", tokens)
 
 
-def test_app_disables_focus_ring_by_default(qtbot: QtBot, tmp_path: Path) -> None:
+def test_app_hides_focus_ring_by_default(qtbot: QtBot, tmp_path: Path) -> None:
     app = App("psi6-focus-default", theme="light", config_root=tmp_path)
 
     assert app.focus_ring is False
     assert not app.qt_app.property(_FOCUS_KEY)
     assert _RING not in app.qt_app.styleSheet()
-    assert "QPushButton:focus" in app.qt_app.styleSheet()
 
 
 def test_app_can_enable_focus_ring_at_construction(qtbot: QtBot, tmp_path: Path) -> None:
@@ -117,19 +116,22 @@ def test_set_focus_ring_restyles_global_and_themed_buttons(qtbot: QtBot, tmp_pat
     assert _RING not in ghost.styleSheet()
 
     app.set_focus_ring(True)
-    assert app.focus_ring is True
-    assert app.qt_app.property(_FOCUS_KEY)
-    assert _RING in app.qt_app.styleSheet()
     assert _RING in primary.styleSheet()
     assert _RING in ghost.styleSheet()
 
-    app.set_theme("dark")
-    assert app.focus_ring is True
-    assert _RING in app.qt_app.styleSheet()
-    assert _RING in primary.styleSheet()
-
     app.set_focus_ring(False)
+    assert app.focus_ring is False
     assert not app.qt_app.property(_FOCUS_KEY)
     assert _RING not in app.qt_app.styleSheet()
     assert _RING not in primary.styleSheet()
     assert _RING not in ghost.styleSheet()
+
+    app.set_theme("dark")
+    assert app.focus_ring is False
+    assert _RING not in primary.styleSheet()
+
+    app.set_focus_ring(True)
+    assert app.focus_ring is True
+    assert _RING in app.qt_app.styleSheet()
+    assert _RING in primary.styleSheet()
+    assert _RING in ghost.styleSheet()

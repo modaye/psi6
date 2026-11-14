@@ -77,6 +77,14 @@ def test_stylesheet_covers_native_widgets() -> None:
         "psi6CheckList",
         "psi6ContentDialog",
         "psi6ImageWell",
+        # 0.7 补上的原生控件缺口：不接管这些段落，浅色主题下会露出 Fusion 默认外观。
+        "QCalendarWidget",
+        "QSlider::groove:vertical",
+        "QSlider::handle:vertical",
+        "QTreeView::branch:has-children:closed",
+        "QMenu::indicator",
+        "QTableCornerButton::section",
+        "QHeaderView::down-arrow",
     ):
         assert selector in css
     assert "padding: 0" in css
@@ -178,6 +186,13 @@ def test_check_and_radio_indicators_are_fully_drawn() -> None:
     checked = css.split("QCheckBox::indicator:checked {", 1)[1].split("}", 1)[0]
     assert f"background: {light.color_primary}" in checked
     assert "image: url(psi6icon:" in checked
+    radio = css.split("QRadioButton::indicator:checked {", 1)[1].split("}", 1)[0]
+    assert f"background: {light.color_surface}" in radio
+    assert f"border-color: {light.color_primary}" in radio
+    assert light.color_primary.lstrip("#") in radio
+    assert light.color_on_primary.lstrip("#") not in radio
+    muted = css.split("QRadioButton::indicator:checked:disabled {", 1)[1].split("}", 1)[0]
+    assert f"border-color: {light.color_muted}" in muted
 
 
 def test_control_border_follows_border_unless_overridden() -> None:
@@ -188,8 +203,8 @@ def test_control_border_follows_border_unless_overridden() -> None:
 
     light = Tokens.light().resolve_states()
     dark = Tokens.dark().resolve_states()
-    assert light.color_control_border == light.color_border == "#d3dae3"
-    assert dark.color_control_border == dark.color_border == "#2b3546"
+    assert light.color_control_border == light.color_border == "#e4e6e5"
+    assert dark.color_control_border == dark.color_border == "#333533"
     assert light.resolve_states() == light
     # 只改了结构边的内置主题，控件边跟着走，不必在每个主题里再写一份。
     assert Obsidian().tokens().color_control_border == Obsidian.color_border
@@ -412,7 +427,6 @@ def test_focus_ring_does_not_shift_content() -> None:
 
     focus_pad = max(0, space_md - (ring - 1))
     focus_min_h = max(12, ch - 2 * (ring - 1))
-    focus_pad_nb = max(0, space_md - ring)
     focus_min_h_nb = max(12, ch - 2 * ring)
     nav_focus_pad = max(0, space_sm - ring)
 
@@ -446,33 +460,19 @@ def test_focus_ring_does_not_shift_content() -> None:
     assert f"padding: 0 {focus_pad}px" in ghost_focus, ("ghost", "pad")
     assert f"min-height: {focus_min_h}px" in ghost_focus, ("ghost", "min-h")
 
-    primary_focus = (
-        psi6_button_stylesheet("psi6Primary", light)
-        .split("QPushButton:focus", 1)[1]
-        .split("{", 1)[1]
-        .split("}", 1)[0]
-    )
-    assert f"padding: 0 {focus_pad_nb}px" in primary_focus, ("primary", "pad_nb")
-    assert f"min-height: {focus_min_h_nb}px" in primary_focus, ("primary", "min_h_nb")
-    assert light.color_on_primary in primary_focus, ("primary", "ring contrasts face")
-    assert contrast_ratio(light.color_on_primary, light.color_primary) >= 3.0, (
-        "primary",
-        "ring vs face < 3:1",
-    )
+    primary_sheet = psi6_button_stylesheet("psi6Primary", light)
+    primary_focus = primary_sheet.split("QPushButton:focus", 1)[1].split("{", 1)[1].split("}", 1)[0]
+    assert light.color_focus in primary_focus, ("primary", "ring uses focus token")
+    assert "padding:" not in primary_focus, ("primary", "focus must not move padding")
+    assert "margin: 2px" in primary_sheet, ("primary", "parent gap")
+    assert f"border: {ring}px solid transparent" in primary_sheet, ("primary", "reserved ring")
+    assert contrast_ratio(light.color_focus, light.color_bg) >= 3.0
 
-    danger_focus = (
-        psi6_button_stylesheet("psi6Danger", light)
-        .split("QPushButton:focus", 1)[1]
-        .split("{", 1)[1]
-        .split("}", 1)[0]
-    )
-    assert f"padding: 0 {focus_pad_nb}px" in danger_focus, ("danger", "pad_nb")
-    assert f"min-height: {focus_min_h_nb}px" in danger_focus, ("danger", "min_h_nb")
-    assert light.color_on_primary in danger_focus, ("danger", "ring contrasts face")
-    assert contrast_ratio(light.color_on_primary, light.color_danger) >= 3.0, (
-        "danger",
-        "ring vs face < 3:1",
-    )
+    danger_sheet = psi6_button_stylesheet("psi6Danger", light)
+    danger_focus = danger_sheet.split("QPushButton:focus", 1)[1].split("{", 1)[1].split("}", 1)[0]
+    assert light.color_focus in danger_focus, ("danger", "ring uses focus token")
+    assert "padding:" not in danger_focus
+    assert "margin: 2px" in danger_sheet
 
     # 分段项：无横向 padding 可扣，只补偿高度
     segment_focus = (
@@ -517,6 +517,58 @@ def test_disabled_states_are_fully_styled() -> None:
         assert "QPushButton:disabled" in sheet, kind
     scrollbar = css.split("QScrollBar::handle:vertical:hover", 1)[1].split("}", 1)[0]
     assert Tokens.light().color_muted in scrollbar
+
+
+def test_no_magic_radii_or_font_offsets() -> None:
+    """01 §圆角与 §字体：样式表里的圆角和字号必须由 token 推导。
+
+    写死的 ``9px`` / ``7px`` / ``2px``，以及 ``font_size + 4`` 这类偏移，
+    会让换密度时同一种容器出现两套圆角、两级标题。这里直接扫源码里的 f-string，
+    因为值本身（例如 ``control_height_sm // 2``）应该随 token 变，不能被白名单锁死。
+    """
+
+    import re
+    from pathlib import Path
+
+    import psi6.theme.apply as module
+
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    assert not re.search(r"border-radius:\s*\d+px", source)
+    assert not re.search(r"font-size:\s*\d+px", source)
+    assert not re.search(r"font_size(_sm|_title)?\s*[+-]\s*\d", source)
+    # min-height / width / height 之类仍然允许写小常量（滚动条、圆点都是固定几何），
+    # 但同一个圆角不允许出现两次不同的字面量表达，这条由上面第一条兜住。
+
+
+def test_tag_tones_reach_the_stylesheet() -> None:
+    """Tag 的 ``tone`` 必须在样式表里有规则，否则四种语义看起来一样。"""
+
+    from psi6.theme.apply import psi6_button_stylesheet
+
+    for base in (Tokens.light(), Tokens.dark()):
+        sheet = psi6_button_stylesheet("psi6Tag", base)
+        for tone in ("neutral", "info", "success", "warning", "error"):
+            assert f'QPushButton[tone="{tone}"]' in sheet, tone
+        # 语义色出现为字色，说明语气没有退化成中性。
+        assert base.color_success in sheet
+        assert base.color_danger in sheet
+
+
+def test_nav_item_marks_selection_with_accent_bar() -> None:
+    """02 §2：选中项有主色竖条。填充色对侧栏底对比只有约 1.1，竖条负责形状。"""
+
+    from psi6.theme.apply import psi6_button_stylesheet
+
+    for base in (Tokens.light(), Tokens.dark()):
+        sheet = psi6_button_stylesheet("psi6NavItem", base)
+        selected = sheet.split('QPushButton:checked, QPushButton[psi6State="selected"]', 1)[1]
+        selected = selected.split("{", 1)[1].split("}", 1)[0]
+        assert f"border-left-color: {base.color_primary}" in selected
+        assert 'QPushButton[psi6NavAccent="off"]:checked' in sheet
+        off = sheet.split('QPushButton[psi6NavAccent="off"]:checked', 1)[1]
+        off = off.split("{", 1)[1].split("}", 1)[0]
+        assert "border-left-color: transparent" in off
+        assert "border-left:" in sheet
 
 
 def test_style_metrics_and_nested_button_tokens() -> None:
@@ -903,7 +955,7 @@ def test_combo_down_arrow_uses_themed_chevron(qtbot: QtBot, tmp_path: Path) -> N
 def test_apply_theme_publishes_size_tokens(qtbot: QtBot, tmp_path: Path) -> None:
     from psi6.theme.runtime import token_int
 
-    # 显式开启焦点环：App 默认关闭，这条用例仍要覆盖「开启时环按 token 生成」。
+    # 显式打开焦点环，不依赖 App 的默认值。
     app = App("psi6-size-tokens", theme="light", config_root=tmp_path, focus_ring=True)
     assert app.qt_app.property("psi6ControlHeight") == 36
     assert token_int("control_height") == 36

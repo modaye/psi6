@@ -121,6 +121,42 @@ class Brass(Theme):
     color_sidebar_text = "#5a5144"
     color_user_bubble = "#6b542e"
     color_info = "#4d5f6e"
+    # 纸色底比纯白暗，旗舰错误色 #d0392e 在这里只有 4.2:1。略加深，错误句才过 4.5。
+    color_danger = "#c7392e"
+
+
+class Graphite(Theme):
+    """石墨与铜。样例工作台用的浅色皮肤，不替换默认的纯白画布和蕨绿。
+
+    中性色是暖灰，强调色是低饱和铜。样例里的警告色 ``#A9761C`` 配白字只有 4.0，
+    这里改成 ``#8d6214``，白字和暖底上的警告字才都过 4.5。焦点用更深的铜，
+    画在画布上而不是画在主按钮填充上。
+    """
+
+    name = "graphite"
+    base = "light"
+    color_bg = "#FAF9F7"
+    color_surface = "#FFFFFF"
+    color_elevated = "#FFFFFF"
+    color_sunken = "#F4F2EF"
+    color_hover = "#ECE9E4"
+    color_text = "#2A2722"
+    color_muted = "#5B554C"
+    color_border = "#D8D3CB"
+    color_border_subtle = "#E7E3DD"
+    color_disabled = "#A8A199"
+    color_primary = "#955836"
+    color_on_primary = "#FFFFFF"
+    color_danger = "#B23B2E"
+    color_success = "#3F7D53"
+    color_warning = "#8d6214"
+    color_info = "#37666E"
+    color_focus = "#7C482C"
+    color_overlay = "rgba(27, 25, 22, 150)"
+    color_sidebar = "#F4F2EF"
+    color_sidebar_text = "#5B554C"
+    color_user_bubble = "#955836"
+    color_user_on_bubble = "#FFFFFF"
 
 
 class Compact(Theme):
@@ -134,4 +170,4 @@ class Compact(Theme):
 def builtin_themes() -> tuple[type[Theme], ...]:
     """随包提供的主题类。``App`` 的注册表和主题选择器用它，按 ``name`` 取。"""
 
-    return (ModernDark, CompactDark, Mono, Obsidian, Pine, Brass, Compact)
+    return (ModernDark, CompactDark, Mono, Obsidian, Pine, Brass, Graphite, Compact)

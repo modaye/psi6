@@ -120,3 +120,41 @@ def test_close_button_triggers_dismiss(host: ToastHost, qtbot: object) -> None:
     qtbot.waitUntil(lambda: card.height() == card.sizeHint().height())  # type: ignore[attr-defined]
     card._close.click()
     qtbot.waitUntil(lambda: card not in host.findChildren(ToastCard))
+
+
+def test_host_sits_in_bottom_right_corner(host: ToastHost, qtbot: object) -> None:
+    """04 §反馈：Toast 出现在窗口下角，不推走页面布局。"""
+
+    window = host._window  # type: ignore[attr-defined]
+    card = host.push("已保存", timeout_ms=60000)
+    assert card is not None
+    qtbot.waitUntil(lambda: card._current_h > 0)  # type: ignore[attr-defined]
+    host._place()  # type: ignore[attr-defined]
+
+    assert host.y() > window.height() / 2, "栈应贴窗口下缘"
+    assert host.geometry().right() <= window.width()
+    assert host.geometry().bottom() <= window.height()
+
+
+def test_hover_pauses_timeout_and_resumes_remaining(
+    host: ToastHost, qtbot: object
+) -> None:
+    """悬停暂停计时；移开后按剩余时长继续，而不是重新计满。"""
+
+    card = host.push("这条比较长，需要时间读完", timeout_ms=4000)
+    assert card is not None
+    qtbot.waitUntil(lambda: card._current_h > 0)  # type: ignore[attr-defined]
+    timer = card._timer  # type: ignore[attr-defined]
+    qtbot.wait(150)
+    assert timer.remainingTime() < 4000
+
+    card._pause_timeout()  # type: ignore[attr-defined]
+    assert not timer.isActive()
+    qtbot.wait(120)
+    assert not timer.isActive(), "悬停期间不许计时"
+
+    card._resume_timeout()  # type: ignore[attr-defined]
+    assert timer.isActive()
+    # 剩余时长应该小于总时长，说明没有重新计满。
+    assert card._remaining_ms < 4000  # type: ignore[attr-defined]
+    timer.stop()

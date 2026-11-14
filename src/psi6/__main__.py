@@ -1,6 +1,7 @@
 """``python -m psi6`` 启动文件索引。
 
-``python -m psi6 kit`` 打开组件主题预览，``python -m psi6 catalog`` 打印控件索引，
+``python -m psi6 kit`` 打开样例工作台，``python -m psi6 kit --workbench`` 打开组件主题预览，
+``python -m psi6 catalog`` 打印控件索引，
 ``python -m psi6 check`` 检查业务代码是否绕开框架。
 """
 

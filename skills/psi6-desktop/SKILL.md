@@ -11,14 +11,17 @@ description: >-
 # psi6 桌面框架
 
 用 `psi6` 的 **运行时、任务、主题、窗壳** 拼桌面程序，不要从 PySide6 重写基建。框架入口只从 `psi6` 导入。控件从 `psi6.ui` 的模块导入，例如 `from psi6.ui.data_table import DataTable`。不要再找整页批处理窗或任务条，页面由应用自己排。
+稳定名字仍是 `from psi6 import App`。根包和 `psi6.runtime` 在第一次访问某个名字时才导入它，并且写成字面量 `from 模块 import 名字`，这样 `import psi6` 不加载界面，打包器也能看见模块。不要改回 `importlib.import_module(变量)`，也不要另写打包钩子。没有界面的任务直接 `from psi6.runtime.tasks import TaskRunner`。
 **本仓库不提供 Excel/PDF 等业务模板，也不为某个产品堆叠首页主键。** 行业逻辑写在应用仓库；这里只提供可复用的运行时与通用壳。改外观优先构造参数，不够再子类覆盖钩子，不要改 `_` 私有实现。
+
+视觉改动先走 `ui-art-direction`、`ui-ux-design`、`design-system-builder`。已确认的规范是 `docs/design/0.7.0/`，冲突以 `08-design-decisions.md` 为准。参考 PNG 是设计稿。实现只在规范确认后按 `ui-implementation` 改控件，验收用 `ui-visual-review` 看真实窗口截图。不凭样式表字符串宣布界面完成。
 
 ## 核心（先做这些）
 
 1. **运行时 `App`**：`App(name)` 创建应用，`app.run(window)` 进入循环。不要手写 `QApplication(sys.argv)`。
    - 主题：`App(name, theme="light"|"dark"|"auto")`，或传入 `Theme` 子类。类属性必须是 `Tokens` 字段名，写错会在加载时抛错。不要写 QSS，也不要用 JSON / TOML / YAML 描述主题。运行中 `app.set_theme(...)`。
    - 响应式密度：`App(name, density="auto")` 默认在窗口变小 / 高 DPI 时自动套用 `compact` 尺寸，`density="modern"|"compact"` 固定，运行时用 `app.set_density_mode(...)` 切换、`app.density_mode` 读当前模式。这是 **App 级策略**，不要再引入 `Theme.density`；`auto` 只收紧不放宽。`app.density_changed` 可订阅生效风格（`modern` / `compact` / `theme`）。自定义控件若构造时缓存了间距或固定宽高，提供无参 `apply_metrics()`，主题 / 密度切换时框架会广播重算。
-   - 键盘焦点环：`App` 默认**不画**焦点环（`focus_ring=False`），聚焦时只抑制 Qt 原生焦点框，不改控件外观与尺寸。需要键盘可见性时传 `App(name, focus_ring=True)`，或运行时 `app.set_focus_ring(True)`；`app.focus_ring` 读状态。换主题、系统浅深色跟随、密度切换都不会重置开关。`build_stylesheet(..., focus_ring=True)` 等纯函数默认仍生成焦点环。
+   - 键盘焦点环：`App` 默认**不画**。有的控件上环很难看。需要对照时传 `App(name, focus_ring=True)`，或运行时 `app.set_focus_ring(True)`；`app.focus_ring` 读状态。换主题、系统浅深色跟随、密度切换都不会重置开关。`build_stylesheet` 与 `psi6_button_stylesheet` 的默认仍是打开，单独预览还能看到环。
    - 图标：与主题模块同目录的 `icons/search.svg` 覆盖 `Icon("search")`。路径相对该模块文件，不相对进程工作目录。仍可用 `register_icon`。
    - 窗壳：主窗口用 `DesktopWindow`，默认是 Qt 自带标题栏。只有用户明确要求无边框时才写 `DesktopWindow(..., frameless=True)`，那时才有自绘 `TitleBar` 和圆角。`app.run(window, tray=True)` 在系统有托盘时接到 `TrayIcon`：关窗口隐藏到托盘，菜单「退出」才结束进程。左键在最小化时展开窗口，不把最小化再藏一次；`add_action` 在「退出」前加菜单项，`set_status` 把短状态附在提示上。`app.run(window, float_ball=True)` 另留一个置顶圆标：单击显示或隐藏主窗口，拖动换位置，右键退出。悬浮球不依赖系统托盘。圆标自己就是窗口，先摆好位置再 `show()`，不要放进页面布局。
    - 默认允许多开，也不记住窗口位置。需要时 `app.run(window, single_instance=True, restore_geometry=True)`。
@@ -62,7 +65,7 @@ Agent 写任务、日志、表单和配置时按这里，不要再手搓线程�
 
 用户短句用 `app.notifier`（`info` 只进状态栏）；必须看见的错误用 `fail`/`warn`。任务进行中 `DataTable.set_busy`。
 
-对照窗口：`python -m psi6 kit`。侧栏仍按控件分组，另有壳、表单、检查、密度和组合。主题页只切换浅色、深色和密度。整页参考：`python -m psi6`（文件索引，工具栏加结果与日志分栏）。它示范任务怎么接，不是要复制的行业模板。结果表排序用 `DataTable.sort_by` 或点击表头；排序和筛选会保留选中行与滚动位置。双击读 `record_activated` 拿记录副本，需要可见行号再接 `row_activated`。表单分组写 `json_schema_extra={"group": "扫描"}`，选项可搜索写 `{"search": True}`。
+对照窗口：`python -m psi6 kit` 打开样例（概览到动效，默认石墨铜）。状态矩阵和四种组合在 `python -m psi6 kit --workbench`。整页参考：`python -m psi6`（文件索引，工具栏加结果与日志分栏）。它示范任务怎么接，不是要复制的行业模板。结果表排序用 `DataTable.sort_by` 或点击表头；排序和筛选会保留选中行与滚动位置。双击读 `record_activated` 拿记录副本，需要可见行号再接 `row_activated`。表单分组写 `json_schema_extra={"group": "扫描"}`，选项可搜索写 `{"search": True}`。
 
 ## 新项目
 
@@ -108,10 +111,10 @@ python app.py --check
 - 默认使用 Qt 标题栏。只有明确要求无边框时才写 `frameless=True`。
 - 确认框只用于需要用户决定的操作。危险操作使用 `danger_button`。
 - 错误要有人能看懂的短句和下一步，不要只写「失败」。空状态用 `EmptyState`。成功、警告和失败用 `Banner` 或 `Notifier`。`info` 只进状态栏。
-- 焦点顺序跟视觉顺序一致。不要覆盖系统常见快捷键。校验错误不能只靠颜色。焦点环默认关闭；纯键盘操作 / 无障碍要求高的界面显式开 `focus_ring=True`，不要为了「看得见焦点」自己写 `:focus` 内联 QSS。
+- 焦点顺序跟视觉顺序一致。不要覆盖系统常见快捷键。校验错误不能只靠颜色。焦点环默认关闭；需要对照键盘焦点时传 `focus_ring=True`，不要自己写 `:focus` 内联 QSS。
 - 图标放在主题模块旁边的 `icons/`。绘制尺寸用 `icon_size`，默认可点区域不小于 28。
-- 层次用背景和边框区分：窗口 `color_bg`，面板 `color_surface`，浮层 `color_elevated`，输入 `color_sunken`。悬停用中性 `color_hover`。持久选中用强调色浅底。实心强调色留给主按钮和焦点。不要靠阴影堆层次。
-- 组件预览 `python -m psi6 kit` 按组件分组。主题页切换现代浅色、现代深色、紧凑浅色、紧凑深色，并可开关焦点环（组件目录为展示焦点态显式开启）。状态页把悬停、按下和焦点画在同一屏。
+- 层次用背景和边框区分：窗口 `color_bg`，面板 `color_surface`，浮层 `color_elevated`，输入 `color_sunken`。悬停用中性 `color_hover`。持久选中用强调色浅底。实心强调色留给主按钮和焦点。不要靠阴影堆层次。只有 `Card(elevated=True)` 可以带一层轻投影。
+- 样例 `python -m psi6 kit` 按概览、按钮、输入、数据、导航、反馈、容器、动效分组，默认可切石墨铜、浅色和深色。状态矩阵在 `python -m psi6 kit --workbench`：主题页切换现代浅色、现代深色、紧凑浅色、紧凑深色和石墨铜，并可开关焦点环。状态页把悬停、按下和焦点画在同一屏。
 
 ## 验证
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from PySide6.QtCore import Property, QEasingCurve, QEvent, QPropertyAnimation, Qt, Signal
+from PySide6.QtCore import Property, QEvent, Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
 
 from psi6.theme.apply import apply_psi6_button_style
 from psi6.theme.runtime import token_color as theme_color
-from psi6.theme.runtime import token_int, token_ms
+from psi6.theme.runtime import token_int
+from psi6.ui import motion
 from psi6.ui.icon import Icon, IconButton
 
 
@@ -56,6 +57,7 @@ class Sidebar(QWidget):
         self.setObjectName("psi6Sidebar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._compact = False
+        self._nav_accent = True
         self._destinations = list(destinations)
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 16, 12, 12)
@@ -124,9 +126,23 @@ class Sidebar(QWidget):
             first = destinations[0].page_id
             self._buttons[first].setChecked(True)
         self._rail_width = self._target_width()
-        self._width_ani = QPropertyAnimation(self, b"railWidth", self)
-        self._width_ani.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.apply_metrics()
+
+    def nav_accent(self) -> bool:
+        """选中项左侧是否画主色竖条。"""
+
+        return self._nav_accent
+
+    def set_nav_accent(self, enabled: bool) -> None:
+        """选中项左侧的主色竖条。
+
+        打开时是 2px ``color_primary``，颜色跟主题走。关掉后只保留选中填充，
+        左侧内边距不变，文字不位移。
+        """
+
+        self._nav_accent = bool(enabled)
+        for button in (*self._buttons.values(), *self._pinned_buttons.values()):
+            self._apply_nav_accent(button)
 
     def is_compact(self) -> bool:
         return self._compact
@@ -181,16 +197,12 @@ class Sidebar(QWidget):
         layout = self.layout()
         if layout is not None:
             layout.setContentsMargins(*margins)
-        duration = token_ms() if animate else 0
-        if hasattr(self, "_width_ani"):
-            self._width_ani.stop()
-        if duration <= 0 or target == self.width():
+        if not animate or target == self.width():
+            motion.stop(self, "railWidth")
             self._set_rail_width(target)
             return
-        self._width_ani.setDuration(duration)
-        self._width_ani.setStartValue(self.width())
-        self._width_ani.setEndValue(target)
-        self._width_ani.start()
+        # 侧栏收放只改宽度，用 ``normal`` 时长（显隐级）；减少动效时 motion 直接到位。
+        motion.animate(self, "railWidth", self.width(), target, speed="normal")
 
     def select(self, page_id: str) -> None:
         button = self._buttons.get(page_id) or self._pinned_buttons.get(page_id)
@@ -275,6 +287,7 @@ class Sidebar(QWidget):
         button.setProperty("psi6Badge", item.badge)
         button.setProperty("psi6NavCaption", item.caption)
         button.setProperty("psi6IconName", item.icon)
+        self._apply_nav_accent(button)
         self._group.addButton(button)
         button.clicked.connect(lambda _=False, page_id=item.page_id: self._emit(page_id))
         button.toggled.connect(
@@ -320,6 +333,12 @@ class Sidebar(QWidget):
         self._format_nav_text(button, compact=self._compact)
         self._paint_nav_icon(button, item.icon)
         return button
+
+    def _apply_nav_accent(self, button: QPushButton) -> None:
+        button.setProperty("psi6NavAccent", "on" if self._nav_accent else "off")
+        button.style().unpolish(button)
+        button.style().polish(button)
+        button.update()
 
     def _format_nav_text(self, button: QPushButton, *, compact: bool) -> None:
         title = button.property("psi6NavTitle")
@@ -421,6 +440,16 @@ class AppShell(QWidget):
 
     def set_sidebar_compact(self, compact: bool) -> None:
         self.sidebar.set_compact(compact)
+
+    def nav_accent(self) -> bool:
+        """选中项左侧是否画主色竖条。"""
+
+        return self.sidebar.nav_accent()
+
+    def set_nav_accent(self, enabled: bool) -> None:
+        """选中项左侧的主色竖条。关掉后只保留选中填充。"""
+
+        self.sidebar.set_nav_accent(enabled)
 
     def set_pinned(self, items: Sequence[NavDestination]) -> None:
         """侧栏底部的快捷项，用来放最近任务。未知页面编号不会切换内容栈。"""

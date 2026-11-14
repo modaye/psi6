@@ -21,6 +21,8 @@ _PAIRS: tuple[tuple[str, str, str, float], ...] = (
     ("用户气泡文字", "color_user_on_bubble", "color_user_bubble", 4.5),
     ("焦点框与背景", "color_focus", "color_bg", 3.0),
     ("焦点框与卡片", "color_focus", "color_surface", 3.0),
+    ("错误色与背景", "color_danger", "color_bg", 4.5),
+    ("错误色与卡片", "color_danger", "color_surface", 4.5),
 )
 
 

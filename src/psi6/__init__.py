@@ -1,27 +1,28 @@
 """psi6 框架入口。控件从 ``psi6.ui`` 导入，示例见 ``psi6.examples``。
 
-根包用惰性导入：``import psi6`` 不会拉起 Qt 界面，``psi6.runtime.tasks``
-也可以在没有 UI 的环境里单独使用。
+稳定名字仍是 ``from psi6 import App``。每个名字在下面的 ``__getattr__`` 里用
+字面量 ``from 模块 import 名字`` 引入，所以：
+
+- ``import psi6`` 不会执行这些导入，没有界面的进程可以继续用 ``psi6.runtime.tasks``。
+- 静态分析（包括 PyInstaller）能看见模块名。不要改回 ``importlib.import_module(变量)``，
+  变量里的模块名不会被打进包。
+
+定义处：
+
+- ``App`` → ``psi6.runtime.app``
+- ``TaskRunner`` / ``TaskHandle`` / ``TaskStatus`` → ``psi6.runtime.tasks``
+- ``JobOutcome`` → ``psi6.runtime.job``
+- ``Theme`` → ``psi6.theme.theme``
+- ``Tokens`` → ``psi6.theme.tokens``
+- ``contrast_notes`` → ``psi6.theme.diagnose``
+- ``DesktopWindow`` → ``psi6.ui.desktop_window``
+- ``TitleBar`` → ``psi6.ui.title_bar``
+- ``TrayIcon`` → ``psi6.ui.tray``
 """
 
 from __future__ import annotations
 
-import importlib
 from typing import Any
-
-_LAZY: dict[str, tuple[str, str]] = {
-    "App": ("psi6.runtime.app", "App"),
-    "DesktopWindow": ("psi6.ui.desktop_window", "DesktopWindow"),
-    "JobOutcome": ("psi6.runtime.job", "JobOutcome"),
-    "TaskHandle": ("psi6.runtime.tasks", "TaskHandle"),
-    "TaskRunner": ("psi6.runtime.tasks", "TaskRunner"),
-    "TaskStatus": ("psi6.runtime.tasks", "TaskStatus"),
-    "Theme": ("psi6.theme.theme", "Theme"),
-    "TitleBar": ("psi6.ui.title_bar", "TitleBar"),
-    "Tokens": ("psi6.theme.tokens", "Tokens"),
-    "TrayIcon": ("psi6.ui.tray", "TrayIcon"),
-    "contrast_notes": ("psi6.theme.diagnose", "contrast_notes"),
-}
 
 __all__ = [
     "App",
@@ -39,13 +40,62 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
-    target = _LAZY.get(name)
-    if target is None:
-        raise AttributeError(f"module 'psi6' has no attribute {name!r}")
-    module_name, attr = target
-    value = getattr(importlib.import_module(module_name), attr)
-    globals()[name] = value
-    return value
+    if name == "App":
+        from psi6.runtime.app import App
+
+        globals()["App"] = App
+        return App
+    if name == "DesktopWindow":
+        from psi6.ui.desktop_window import DesktopWindow
+
+        globals()["DesktopWindow"] = DesktopWindow
+        return DesktopWindow
+    if name == "JobOutcome":
+        from psi6.runtime.job import JobOutcome
+
+        globals()["JobOutcome"] = JobOutcome
+        return JobOutcome
+    if name == "TaskHandle":
+        from psi6.runtime.tasks import TaskHandle
+
+        globals()["TaskHandle"] = TaskHandle
+        return TaskHandle
+    if name == "TaskRunner":
+        from psi6.runtime.tasks import TaskRunner
+
+        globals()["TaskRunner"] = TaskRunner
+        return TaskRunner
+    if name == "TaskStatus":
+        from psi6.runtime.tasks import TaskStatus
+
+        globals()["TaskStatus"] = TaskStatus
+        return TaskStatus
+    if name == "Theme":
+        from psi6.theme.theme import Theme
+
+        globals()["Theme"] = Theme
+        return Theme
+    if name == "TitleBar":
+        from psi6.ui.title_bar import TitleBar
+
+        globals()["TitleBar"] = TitleBar
+        return TitleBar
+    if name == "Tokens":
+        from psi6.theme.tokens import Tokens
+
+        globals()["Tokens"] = Tokens
+        return Tokens
+    if name == "TrayIcon":
+        from psi6.ui.tray import TrayIcon
+
+        globals()["TrayIcon"] = TrayIcon
+        return TrayIcon
+    if name == "contrast_notes":
+        from psi6.theme.diagnose import contrast_notes
+
+        globals()["contrast_notes"] = contrast_notes
+        return contrast_notes
+    raise AttributeError(f"module 'psi6' has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:

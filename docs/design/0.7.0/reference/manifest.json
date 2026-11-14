@@ -1,0 +1,648 @@
+{
+  "shots": [
+    {
+      "page": "settings",
+      "theme": "light-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "settings\\light-modern\\wide.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "settings\\light-modern\\medium.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "settings\\light-modern\\narrow.png"
+    },
+    {
+      "page": "settings",
+      "theme": "dark-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "settings\\dark-modern\\wide.png"
+    },
+    {
+      "page": "settings",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "settings\\dark-modern\\medium.png"
+    },
+    {
+      "page": "settings",
+      "theme": "dark-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "settings\\dark-modern\\narrow.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "settings\\light-compact\\wide.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "settings\\light-compact\\medium.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "settings\\light-compact\\narrow.png"
+    },
+    {
+      "page": "settings",
+      "theme": "dark-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "settings\\dark-compact\\wide.png"
+    },
+    {
+      "page": "settings",
+      "theme": "dark-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "settings\\dark-compact\\medium.png"
+    },
+    {
+      "page": "settings",
+      "theme": "dark-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "settings\\dark-compact\\narrow.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "empty",
+      "path": "states\\settings-empty.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "loading",
+      "path": "states\\settings-loading.png"
+    },
+    {
+      "page": "settings",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "states\\settings-error.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "file-index\\light-modern\\wide.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "file-index\\light-modern\\medium.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "file-index\\light-modern\\narrow.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "dark-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "file-index\\dark-modern\\wide.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "file-index\\dark-modern\\medium.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "dark-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "file-index\\dark-modern\\narrow.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "file-index\\light-compact\\wide.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "file-index\\light-compact\\medium.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "file-index\\light-compact\\narrow.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "dark-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "file-index\\dark-compact\\wide.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "dark-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "file-index\\dark-compact\\medium.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "dark-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "file-index\\dark-compact\\narrow.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "empty",
+      "path": "states\\file-index-empty.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "loading",
+      "path": "states\\file-index-loading.png"
+    },
+    {
+      "page": "file-index",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "states\\file-index-error.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "task\\light-modern\\wide.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "task\\light-modern\\medium.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "task\\light-modern\\narrow.png"
+    },
+    {
+      "page": "task",
+      "theme": "dark-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "task\\dark-modern\\wide.png"
+    },
+    {
+      "page": "task",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "task\\dark-modern\\medium.png"
+    },
+    {
+      "page": "task",
+      "theme": "dark-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "task\\dark-modern\\narrow.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "task\\light-compact\\wide.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "task\\light-compact\\medium.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "task\\light-compact\\narrow.png"
+    },
+    {
+      "page": "task",
+      "theme": "dark-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "task\\dark-compact\\wide.png"
+    },
+    {
+      "page": "task",
+      "theme": "dark-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "task\\dark-compact\\medium.png"
+    },
+    {
+      "page": "task",
+      "theme": "dark-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "task\\dark-compact\\narrow.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "empty",
+      "path": "states\\task-empty.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "loading",
+      "path": "states\\task-loading.png"
+    },
+    {
+      "page": "task",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "states\\task-error.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "workbench\\light-modern\\wide.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "workbench\\light-modern\\medium.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "workbench\\light-modern\\narrow.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "dark-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "workbench\\dark-modern\\wide.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "workbench\\dark-modern\\medium.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "dark-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "workbench\\dark-modern\\narrow.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "workbench\\light-compact\\wide.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "workbench\\light-compact\\medium.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "workbench\\light-compact\\narrow.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "dark-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "workbench\\dark-compact\\wide.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "dark-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "workbench\\dark-compact\\medium.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "dark-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "workbench\\dark-compact\\narrow.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "empty",
+      "path": "states\\workbench-empty.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "loading",
+      "path": "states\\workbench-loading.png"
+    },
+    {
+      "page": "workbench",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "states\\workbench-error.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "components\\light-modern\\wide.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "components\\light-modern\\medium.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "components\\light-modern\\narrow.png"
+    },
+    {
+      "page": "components",
+      "theme": "dark-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "components\\dark-modern\\wide.png"
+    },
+    {
+      "page": "components",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "components\\dark-modern\\medium.png"
+    },
+    {
+      "page": "components",
+      "theme": "dark-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "components\\dark-modern\\narrow.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "components\\light-compact\\wide.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "components\\light-compact\\medium.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "components\\light-compact\\narrow.png"
+    },
+    {
+      "page": "components",
+      "theme": "dark-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "components\\dark-compact\\wide.png"
+    },
+    {
+      "page": "components",
+      "theme": "dark-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "components\\dark-compact\\medium.png"
+    },
+    {
+      "page": "components",
+      "theme": "dark-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "components\\dark-compact\\narrow.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "empty",
+      "path": "states\\components-empty.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "loading",
+      "path": "states\\components-loading.png"
+    },
+    {
+      "page": "components",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "states\\components-error.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "chat\\light-modern\\wide.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "chat\\light-modern\\medium.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "chat\\light-modern\\narrow.png"
+    },
+    {
+      "page": "chat",
+      "theme": "dark-modern",
+      "band": "wide",
+      "mode": "ready",
+      "path": "chat\\dark-modern\\wide.png"
+    },
+    {
+      "page": "chat",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "ready",
+      "path": "chat\\dark-modern\\medium.png"
+    },
+    {
+      "page": "chat",
+      "theme": "dark-modern",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "chat\\dark-modern\\narrow.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "chat\\light-compact\\wide.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "chat\\light-compact\\medium.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "chat\\light-compact\\narrow.png"
+    },
+    {
+      "page": "chat",
+      "theme": "dark-compact",
+      "band": "wide",
+      "mode": "ready",
+      "path": "chat\\dark-compact\\wide.png"
+    },
+    {
+      "page": "chat",
+      "theme": "dark-compact",
+      "band": "medium",
+      "mode": "ready",
+      "path": "chat\\dark-compact\\medium.png"
+    },
+    {
+      "page": "chat",
+      "theme": "dark-compact",
+      "band": "narrow",
+      "mode": "ready",
+      "path": "chat\\dark-compact\\narrow.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "empty",
+      "path": "states\\chat-empty.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "loading",
+      "path": "states\\chat-loading.png"
+    },
+    {
+      "page": "chat",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "states\\chat-error.png"
+    },
+    {
+      "page": "dialog",
+      "theme": "light-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "dialogs\\confirm-light-modern.png"
+    },
+    {
+      "page": "dialog",
+      "theme": "dark-modern",
+      "band": "medium",
+      "mode": "error",
+      "path": "dialogs\\confirm-dark-modern.png"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 不依赖像素级基线（跨平台易碎），改为断言**不变量**：主按钮填充 ≈ ``color_primary``、
 危险按钮填充 ≈ ``color_danger``。这类断言能抓住本次发现过的那类回归——切到深色主题后
-主题化按钮仍停在浅色主题的配色（例如主按钮本该是 ``#6e9ff2`` 却仍是 ``#2b5cd7``）。
+主题化按钮仍停在浅色主题的配色（例如深色主按钮仍是浅色的 ``#1f7a4d``）。
 场景里还放了 ``QLineEdit`` / ``DataTable`` / ``TreeView``，作为换肤的冒烟覆盖（这些组件
 也走按控件套样式表，同样可能被那类回归波及），但当前断言只聚焦最易出错的按钮。
 
@@ -126,8 +126,9 @@ def test_theme_tokens_are_applied_to_components(qapp: QApplication, qtbot, theme
         f"[{theme}] 危险按钮填充 {danger_color.name()} 偏离 color_danger {tokens.color_danger}"
     )
 
-    # 深色基调下，主按钮不得还是浅色基调的蓝
+    # 深色基调下，主按钮不得还停在浅色主题的主色上。
     if is_dark:
-        assert primary_color.name() != "#2b5cd7", (
-            f"[{theme}] 深色主题主按钮仍是浅色基调的 #2b5cd7，主题未生效"
+        light_primary = Tokens.light().color_primary
+        assert primary_color.name() != light_primary, (
+            f"[{theme}] 深色主题主按钮仍是浅色主色 {light_primary}，主题未生效"
         )

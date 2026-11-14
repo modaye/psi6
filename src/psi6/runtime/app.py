@@ -91,9 +91,8 @@ class App:
     为手动固定。运行中可用 :meth:`set_density_mode` 切换，用 :attr:`density_changed` 订阅
     手动切换与窗口尺寸触发的自动翻转。
 
-    ``focus_ring`` 默认 ``False``：聚焦时不画彩色焦点环，也不改控件尺寸，只抑制 Qt 原生
-    焦点框。需要键盘可见性的场景传 ``True``，或运行中调用 :meth:`set_focus_ring`；组件目录
-    ``kit`` 显式开启，以便「状态矩阵」页仍能展示焦点态。
+    ``focus_ring`` 默认 ``False``：不画焦点环，只抑制 Qt 的虚线框。
+    需要对照键盘焦点时传 ``True`` 或调用 :meth:`set_focus_ring`。有的控件上环会显得脏。
     """
 
     def __init__(
@@ -110,6 +109,7 @@ class App:
         compact_max_width: int = _COMPACT_MAX_WIDTH,
         compact_max_height: int = _COMPACT_MAX_HEIGHT,
         focus_ring: bool = False,
+        reduced_motion: bool = False,
     ) -> None:
         self.name = name
         self.organization = organization
@@ -136,6 +136,7 @@ class App:
         self._previous_quit_on_last_window_closed: bool | None = None
         self._density_mode = _normalize_density(density)
         self._focus_ring = bool(focus_ring)
+        self._reduced_motion = bool(reduced_motion)
         self._compact_max_width = max(1, int(compact_max_width))
         self._compact_max_height = max(1, int(compact_max_height))
         self._applied_style: str | None = None
@@ -245,13 +246,35 @@ class App:
         self._focus_ring = bool(enabled)
         self._apply_tokens()
 
+    @property
+    def reduced_motion(self) -> bool:
+        """当前是否关闭动画。``True`` 时所有 ``motion`` 动画直达终值。"""
+
+        return self._reduced_motion
+
+    def set_reduced_motion(self, enabled: bool) -> None:
+        """运行时可关掉全部动画（无障碍、低性能设备、远程桌面）。
+
+        实现方式是把 ``Tokens.reduced_motion`` 置 1 后重套主题：``motion_fast_ms``
+        与 ``motion_ms`` 归零，``psi6.ui.motion`` 因此直接置终值。已画好的控件
+        不需要逐个通知——它们下一次交互读到的是 0。
+        """
+
+        changed = bool(enabled) != self._reduced_motion
+        self._reduced_motion = bool(enabled)
+        if changed:
+            self._apply_tokens()
+
     def _resolve_current(self) -> Tokens:
         if self._tokens_override is not None:
             tokens = self._tokens_override.resolve_states()
         else:
             spec = self._theme_spec
             tokens = Tokens.light() if spec is None else resolve_tokens(self._theme_class(spec))
-        return self._apply_density(tokens.resolve_states())
+        tokens = tokens.resolve_states()
+        if self._reduced_motion and not tokens.reduced_motion:
+            tokens = tokens.overlay({"reduced_motion": 1})
+        return self._apply_density(tokens)
 
     def _apply_tokens(self, *, density_event: bool = False) -> None:
         """重解析 token、重套主题与尺寸、刷新托盘，必要时广播密度变化。

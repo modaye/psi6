@@ -10,14 +10,95 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from PySide6.QtCore import QPoint, Signal
+from PySide6.QtCore import Property, QEvent, QObject, QPoint, QRectF, Qt, Signal
+from PySide6.QtGui import QPaintEvent
 from PySide6.QtWidgets import QStackedWidget, QTabBar, QTabWidget, QVBoxLayout, QWidget
 
 from psi6.runtime.config import ConfigStore
+from psi6.theme.paint import as_color, create_painter
+from psi6.theme.runtime import token_color
+from psi6.ui import motion
 from psi6.ui.context_menu import MenuAction, MenuTarget, attach_context_menu
 from psi6.ui.empty_state import EmptyState
 
 _DEFAULT_STATE_FILE = "tabs.json"
+
+
+class _ActiveMark(QWidget):
+    """贴在文档页签底部的主色条。切换时滑到新页签，不推动布局。"""
+
+    def __init__(self, bar: QTabBar) -> None:
+        super().__init__(bar)
+        self._bar = bar
+        self._x = 0.0
+        self._w = 0.0
+        self._syncing = False
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        bar.installEventFilter(self)
+        bar.currentChanged.connect(lambda _index: self.follow(True))
+        bar.tabMoved.connect(lambda *_args: self.follow(False))
+        self.follow(False)
+
+    def _get_x(self) -> float:
+        return self._x
+
+    def _set_x(self, value: float) -> None:
+        self._x = float(value)
+        self.update()
+
+    def _get_w(self) -> float:
+        return self._w
+
+    def _set_w(self, value: float) -> None:
+        self._w = float(value)
+        self.update()
+
+    markX = Property(float, _get_x, _set_x)
+    markW = Property(float, _get_w, _set_w)
+
+    def follow(self, animate: bool) -> None:
+        """把指示器放到当前页签下。``animate`` 为假时直接到位（缩放、拖动）。"""
+
+        if self._syncing:
+            return
+        self._syncing = True
+        try:
+            index = self._bar.currentIndex()
+            if index < 0 or self._bar.height() < 4:
+                self.hide()
+                return
+            rect = self._bar.tabRect(index)
+            inset = 12.0
+            target_x = rect.x() + inset
+            target_w = max(12.0, rect.width() - inset * 2)
+            self.setGeometry(0, self._bar.height() - 3, self._bar.width(), 3)
+            self.show()
+            self.raise_()
+            if not animate:
+                motion.stop(self, "markX")
+                motion.stop(self, "markW")
+                self._x = target_x
+                self._w = target_w
+                self.update()
+                return
+            motion.animate(self, "markX", self._x, target_x, speed="normal")
+            motion.animate(self, "markW", self._w, target_w, speed="normal")
+        finally:
+            self._syncing = False
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self._bar and event.type() in (
+            QEvent.Type.Resize,
+            QEvent.Type.Show,
+        ):
+            self.follow(False)
+        return False
+
+    def paintEvent(self, _event: QPaintEvent) -> None:
+        with create_painter(self) as painter:
+            painter.setBrush(as_color(token_color("color_primary")))
+            painter.drawRoundedRect(QRectF(self._x, 0.5, self._w, 2), 1, 1)
 
 
 class TabView(QWidget):
@@ -70,6 +151,7 @@ class TabView(QWidget):
         self._tabs.currentChanged.connect(self._on_current)
         self._tabs.tabCloseRequested.connect(self._on_close_requested)
         self._tabs.tabBar().tabMoved.connect(self._on_moved)
+        self._mark = _ActiveMark(self._tabs.tabBar())
         self._sync_empty()
 
     def context_menu(self, builder: Callable[[MenuTarget], Sequence[MenuAction] | None]) -> QTabBar:

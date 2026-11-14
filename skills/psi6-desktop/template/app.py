@@ -30,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     # density="auto" 会在窗口变小 / 高 DPI 时自动收紧间距与控件高度；
     # 也可传 "modern" / "compact" 固定，或运行时用 app.set_density_mode(...) 切换。
-    # 键盘焦点环默认不画；需要键盘可见性时传 focus_ring=True 或 app.set_focus_ring(True)。
+    # 键盘焦点环默认关闭。需要对照时传 focus_ring=True 或 app.set_focus_ring(True)。
     app = App("desk", theme=Desk, density="auto")
     window = build(app)
     if "--check" not in args:

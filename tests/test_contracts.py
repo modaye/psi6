@@ -367,6 +367,28 @@ def test_stable_api_imports() -> None:
             assert all(not item.startswith("psi6.ui") for item in modules)
 
 
+def test_stable_exports_are_literal_imports() -> None:
+    """打包器要能从源码看见模块名，不能只看到 importlib 的变量。"""
+
+    import psi6
+    import psi6.runtime as runtime
+
+    for module, names in (
+        (psi6, psi6.__all__),
+        (runtime, runtime.__all__),
+    ):
+        path = Path(module.__file__).resolve()
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        exported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                assert node.func.attr != "import_module", path
+            if isinstance(node, ast.ImportFrom):
+                exported.update(alias.name for alias in node.names)
+        missing = [name for name in names if name not in exported]
+        assert not missing, (path.name, missing)
+
+
 def test_headless_imports_do_not_pull_ui() -> None:
     """根包、runtime 包和任务模块都不应把 ``psi6.ui`` 拉进来。"""
 

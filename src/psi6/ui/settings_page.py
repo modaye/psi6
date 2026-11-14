@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.buttons import primary_button
 from psi6.ui.fields import build_field_editor, switch_row_supported
+from psi6.ui.file_input import FileInput, FolderInput
 from psi6.ui.form_model import (
     FormError,
     ModelFormController,
@@ -64,6 +65,7 @@ class SettingsPage(QWidget):
                 self._controller.add_hidden(name, field, values.get(name))
         for group in order:
             section = Section(group)
+            section.setMaximumWidth(720)
             for name in groups[group]:
                 field = model_type.model_fields[name]
                 extra = field_extra(field)
@@ -89,6 +91,10 @@ class SettingsPage(QWidget):
                 editor = build_field_editor(annotation, field, extra, optional, name=name)
                 widget = editor.widget
                 widget.setProperty("psi6Field", name)
+                if isinstance(widget, (FileInput, FolderInput)):
+                    widget.setMaximumWidth(480)
+                else:
+                    widget.setMaximumWidth(320)
                 self._controller.add(
                     name,
                     field,

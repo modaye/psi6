@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from psi6.theme.runtime import token_color
+from psi6.theme.runtime import token_color, token_int
 from psi6.ui.icon import Icon
 
 
@@ -101,9 +101,12 @@ class _StepNode(QWidget):
         self._mark = QLabel(f"{number:02d}")
         self._mark.setObjectName("psi6StepMark")
         self._mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._mark.setFixedSize(26, 26)
+        # 边长与样式表里的 ``border-radius`` 同源（control_height_sm），
+        # 切密度时圆点仍是正圆，不会退化成椭圆。
+        mark_side = max(24, token_int("control_height_sm", 28))
+        self._mark.setFixedSize(mark_side, mark_side)
         self._check = Icon("check", size=14, parent=self._mark)
-        self._check.move(6, 6)
+        self._check.move(max(4, (mark_side - 14) // 2), max(4, (mark_side - 14) // 2))
         self._check.hide()
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)

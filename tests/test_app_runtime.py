@@ -18,6 +18,30 @@ class Prefs(BaseModel):
     retries: int = Field(default=1)
 
 
+def test_reduced_motion_zeroes_durations(qtbot: QtBot, tmp_path: Path) -> None:
+    """``set_reduced_motion`` 把两档动画时长归零，恢复后回到主题值。"""
+
+    app = App("psi6-reduced-motion", theme="light", config_root=tmp_path)
+    assert app.reduced_motion is False
+    fast, slow = app.tokens.motion_fast_ms, app.tokens.motion_ms
+    assert fast > 0 and slow > 0
+
+    app.set_reduced_motion(True)
+    assert app.reduced_motion is True
+    assert app.tokens.motion_fast_ms == 0
+    assert app.tokens.motion_ms == 0
+
+    app.set_reduced_motion(False)
+    assert app.tokens.motion_fast_ms == fast
+    assert app.tokens.motion_ms == slow
+
+
+def test_reduced_motion_can_be_set_at_construction(qtbot: QtBot, tmp_path: Path) -> None:
+    app = App("psi6-reduced-motion-boot", config_root=tmp_path, reduced_motion=True)
+    assert app.reduced_motion is True
+    assert app.tokens.motion_fast_ms == 0
+
+
 def test_app_config_roundtrip(qtbot: QtBot, tmp_path: Path) -> None:
     app = App("psi6-infra-test", config_root=tmp_path)
     app.save_config(Prefs(retries=4))

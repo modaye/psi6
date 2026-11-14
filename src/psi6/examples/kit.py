@@ -26,7 +26,7 @@ from psi6.examples.file_index import FILE_INDEX_COLUMNS
 from psi6.jobs.file_index import FileIndexParams, run_file_index
 from psi6.runtime.logs import LogLevel, LogRecord
 from psi6.theme.apply import apply_psi6_button_style
-from psi6.theme.builtin import Compact, CompactDark, ModernDark
+from psi6.theme.builtin import Compact, CompactDark, Graphite, ModernDark
 from psi6.theme.theme import Theme
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
@@ -95,6 +95,8 @@ class KitWindow(DesktopWindow):
         self._app = app
         self._density_note: QLabel | None = None
         self._focus_note: QLabel | None = None
+        self._motion_note: QLabel | None = None
+        self._motion_switch: Switch | None = None
         self.resize(1180, 760)
         self.shell = AppShell(_DESTINATIONS, title="psi6")
         self._banner = Banner()
@@ -720,6 +722,7 @@ class KitWindow(DesktopWindow):
             ("现代深色", ModernDark),
             ("紧凑浅色", Compact),
             ("紧凑深色", CompactDark),
+            ("石墨铜", Graphite),
         )
         body = QWidget()
         column = QVBoxLayout(body)
@@ -751,8 +754,8 @@ class KitWindow(DesktopWindow):
         column.addWidget(self._density_note)
 
         focus_label = QLabel(
-            "键盘焦点环默认关闭：聚焦时不画彩色环，控件外观与尺寸都不变。"
-            "组件目录为了展示「状态矩阵」的焦点态而显式开启，可以在这里切换。"
+            "应用默认不画焦点环。组件目录为了展示状态矩阵，这里显式打开。"
+            "聚焦时在控件外侧留出父级表面，再画焦点色。可以在这里关掉对照。"
         )
         focus_label.setObjectName("psi6Hint")
         focus_label.setWordWrap(True)
@@ -770,6 +773,35 @@ class KitWindow(DesktopWindow):
         self._focus_note = QLabel(self._focus_text())
         self._focus_note.setObjectName("psi6Hint")
         column.addWidget(self._focus_note)
+
+        motion_label = QLabel(
+            "动效：悬停、按下和开关滑块共用同一套时长 token。关闭后所有动画直达终值，"
+            "功能不变——用于无障碍、低性能设备和远程桌面。"
+        )
+        motion_label.setObjectName("psi6Hint")
+        motion_label.setWordWrap(True)
+        column.addWidget(motion_label)
+        motion_bar = ActionBar()
+        motion_bar.setObjectName("psi6MotionModes")
+        for label, enabled in (("开启动效", True), ("减少动效", False)):
+            button = ghost_button(label)
+            button.setProperty("reducedMotion", not enabled)
+            button.clicked.connect(
+                lambda _checked=False, chosen=enabled: self._apply_motion(chosen)
+            )
+            motion_bar.add_left(button)
+        column.addWidget(motion_bar)
+        self._motion_note = QLabel(self._motion_text())
+        self._motion_note.setObjectName("psi6Hint")
+        self._motion_note.setWordWrap(True)
+        column.addWidget(self._motion_note)
+
+        switch_row = ActionBar()
+        switch_row.setObjectName("psi6MotionProbe")
+        switch_row.add_left(QLabel("试着拨动这个开关："))
+        self._motion_switch = Switch(checked=True)
+        switch_row.add_left(self._motion_switch)
+        column.addWidget(switch_row)
 
         note = QLabel("macOS、Linux 和 150% 缩放尚未在本机验证。")
         note.setObjectName("psi6Hint")
@@ -996,6 +1028,22 @@ class KitWindow(DesktopWindow):
             return "焦点环：开启 · Tab 聚焦时显示品牌色环（键盘可见性）"
         return "焦点环：关闭 · 聚焦不改外观与尺寸，只抑制原生焦点框"
 
+    def _motion_text(self) -> str:
+        if self._app.reduced_motion:
+            return "动效：已减少 · 所有动画直接到终值，功能不变"
+        fast = self._app.tokens.motion_fast_ms
+        slow = self._app.tokens.motion_ms
+        return f"动效：开启 · 悬停与按下 {fast}ms，位移与显隐 {slow}ms"
+
+    def _apply_motion(self, enabled: bool) -> None:
+        self._app.set_reduced_motion(not enabled)
+        if self._motion_note is not None:
+            self._motion_note.setText(self._motion_text())
+        self.shell.sidebar.refresh_icons()
+        self.update()
+        self._banner.set_notice(self._motion_text(), tone="success")
+        self.statusBar().showMessage(self._motion_text())
+
     def _apply_focus_ring(self, enabled: bool) -> None:
         self._app.set_focus_ring(enabled)
         if self._focus_note is not None:
@@ -1022,8 +1070,14 @@ class KitWindow(DesktopWindow):
 
 
 def main() -> None:
-    """打开组件目录。"""
+    """打开样例工作台。``--workbench`` 仍打开带状态矩阵的组件目录。"""
 
-    # 业务应用默认不画焦点环；组件目录要展示「状态矩阵」的焦点态，显式开启。
-    app = App("psi6-kit", theme="light", density="auto", focus_ring=True)
-    raise SystemExit(app.run(KitWindow(app), tray=True, restore_geometry=True))
+    import sys
+
+    if "--workbench" in sys.argv:
+        # 业务应用默认不画焦点环；组件目录要展示「状态矩阵」的焦点态，显式开启。
+        app = App("psi6-kit", theme="light", density="auto", focus_ring=True)
+        raise SystemExit(app.run(KitWindow(app), tray=True, restore_geometry=True))
+    from psi6.examples.showroom import main as showroom_main
+
+    showroom_main()

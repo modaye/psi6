@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtCore import Property, QEasingCurve, QEvent, QObject, QPropertyAnimation, Qt
+from PySide6.QtCore import Property, QEvent, QObject, Qt
 from PySide6.QtWidgets import QWidget
 
-from psi6.theme.runtime import token_ms
+from psi6.ui import motion
 
 
 class PressScaleFilter(QObject):
@@ -19,8 +19,6 @@ class PressScaleFilter(QObject):
         self._rest = 1.0
         self._down = pressed
         self._scale = 1.0
-        self._motion = QPropertyAnimation(self, b"scale", self)
-        self._motion.setEasingCurve(QEasingCurve.Type.OutCubic)
         host.installEventFilter(self)
 
     def _get_scale(self) -> float:
@@ -35,15 +33,12 @@ class PressScaleFilter(QObject):
     scale = Property(float, _get_scale, _set_scale)
 
     def _go(self, target: float) -> None:
-        duration = token_ms("fast")
-        self._motion.stop()
-        if duration <= 0 or abs(target - self._scale) < 0.002:
+        """走向目标缩放。减少动效时直接到位。"""
+
+        if abs(target - self._scale) < 0.002:
             self._set_scale(target)
             return
-        self._motion.setDuration(duration)
-        self._motion.setStartValue(self._scale)
-        self._motion.setEndValue(target)
-        self._motion.start()
+        motion.animate(self, "scale", self._scale, target)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # type: ignore[override]
         if watched is not self._host:

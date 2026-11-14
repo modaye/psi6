@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QEasingCurve, QEvent, QPropertyAnimation, QRectF, Qt
+from PySide6.QtCore import Property, QEvent, QRectF, Qt
 from PySide6.QtGui import QPaintEvent
 from PySide6.QtWidgets import QAbstractButton, QSizePolicy, QWidget
 
 from psi6.theme.paint import as_color, create_painter, mix_color, scale_around_center
-from psi6.theme.runtime import token_color, token_int, token_ms
+from psi6.theme.runtime import token_color, token_int
+from psi6.ui import motion
 from psi6.ui.filters import install_press_scale
 
 
@@ -24,8 +25,6 @@ class Switch(QAbstractButton):
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._progress = 1.0 if checked else 0.0
         self._press_scale = 1.0
-        self._motion = QPropertyAnimation(self, b"progress", self)
-        self._motion.setEasingCurve(QEasingCurve.Type.OutCubic)
         self._sync_metrics()
         self.blockSignals(True)
         self.setChecked(checked)
@@ -54,19 +53,15 @@ class Switch(QAbstractButton):
         self.setFixedSize(width, height)
 
     def _move_thumb(self, checked: bool) -> None:
-        """``toggled`` 之后滑动圆钮。时长 0 则立刻到位。"""
+        """``toggled`` 之后滑动圆钮。减少动效时直接到位。"""
 
-        self._motion.stop()
         target = 1.0 if checked else 0.0
-        duration = token_ms("fast")
-        if duration <= 0 or abs(target - self._progress) < 0.01:
+        if abs(target - self._progress) < 0.01:
+            motion.stop(self, "progress")
             self._progress = target
             self.update()
             return
-        self._motion.setDuration(duration)
-        self._motion.setStartValue(self._progress)
-        self._motion.setEndValue(target)
-        self._motion.start()
+        motion.animate(self, "progress", self._progress, target)
 
     def changeEvent(self, event: QEvent) -> None:  # type: ignore[override]
         super().changeEvent(event)

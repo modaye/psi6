@@ -101,6 +101,8 @@ def _build_chrome_images(tokens: Tokens) -> dict[str, str]:
     # 页签关闭按钮：QSS 一旦写 background / border / image 就会接管掉 Qt 原生
     # 的叉号，所以必须自己给一份图形。
     close = max(8, min(tokens.icon_size, 12))
+    # 表头排序指示器比图标更小一档，否则会把表头文字挤开。
+    small = max(8, min(tokens.icon_size - 4, 12))
     return {
         "down": qss_icon_ref("chevron-down", color=tokens.color_muted, size=size),
         "up": qss_icon_ref("chevron-up", color=tokens.color_muted, size=size),
@@ -109,9 +111,24 @@ def _build_chrome_images(tokens: Tokens) -> dict[str, str]:
         "up_disabled": qss_icon_ref("chevron-up", color=tokens.color_disabled, size=size),
         "check_on": qss_icon_ref("check", color=tokens.color_on_primary, size=size),
         "minus_on": qss_icon_ref("minus", color=tokens.color_on_primary, size=size),
-        "dot_on": qss_icon_ref("dot", color=tokens.color_on_primary, size=size),
+        "dot_on": qss_icon_ref("dot", color=tokens.color_primary, size=size),
         "check_muted": qss_icon_ref("check", color=tokens.color_muted, size=size),
         "dot_muted": qss_icon_ref("dot", color=tokens.color_muted, size=size),
         "tab_close": qss_icon_ref("x", color=tokens.color_muted, size=close),
         "tab_close_on": qss_icon_ref("x", color=tokens.color_text, size=close),
+        # 树的分支箭头：收起为右向、展开为下向。同一份图形在两种状态下着色，
+        # 悬停和选中不改色，改的是行填充。
+        "branch_closed": qss_icon_ref("chevron-right", color=tokens.color_muted, size=size),
+        "branch_open": qss_icon_ref("chevron-down", color=tokens.color_muted, size=size),
+        "branch_closed_disabled": qss_icon_ref(
+            "chevron-right", color=tokens.color_disabled, size=size
+        ),
+        # 菜单的勾选与单选标记。QSS 一旦接管 QMenu::indicator，Qt 不再代画。
+        "menu_check": qss_icon_ref("check", color=tokens.color_text, size=size),
+        "menu_dot": qss_icon_ref("dot", color=tokens.color_text, size=size),
+        "menu_check_disabled": qss_icon_ref("check", color=tokens.color_disabled, size=size),
+        "menu_dot_disabled": qss_icon_ref("dot", color=tokens.color_disabled, size=size),
+        # 表头排序指示器。Qt 原生三角在浅色主题下是灰块，与箭头语言不一致。
+        "sort_asc": qss_icon_ref("chevron-up", color=tokens.color_muted, size=small),
+        "sort_desc": qss_icon_ref("chevron-down", color=tokens.color_muted, size=small),
     }

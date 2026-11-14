@@ -13,6 +13,30 @@ from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QLabel, QWidget
 
 
+def _mark_invalid(root: QWidget, invalid: bool) -> None:
+    """给输入控件打上 ``invalid``，样式表据此把边改成错误色。
+
+    属性名与路径框一致。复合控件里的真正输入框也要标上，错误边才不会只出现在外层容器。
+    """
+
+    names = {
+        "QLineEdit",
+        "QComboBox",
+        "QSpinBox",
+        "QDoubleSpinBox",
+        "QPlainTextEdit",
+        "QTextEdit",
+    }
+    targets = [root, *root.findChildren(QWidget)]
+    for widget in targets:
+        if widget.metaObject().className() not in names:
+            continue
+        widget.setProperty("invalid", invalid)
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+        widget.update()
+
+
 class FormError(Exception):
     """表单校验失败。``field_errors`` 为字段名到中文说明。"""
 
@@ -244,11 +268,13 @@ class ModelFormController:
                 continue
             binding.error_label.setText(text)
             binding.error_label.show()
+            _mark_invalid(binding.widget, True)
 
     def clear_errors(self) -> None:
         for binding in self._bindings:
             binding.error_label.hide()
             binding.error_label.setText("")
+            _mark_invalid(binding.widget, False)
 
     def _silence(self, enabled: bool) -> list[tuple[QObject, bool]]:
         silenced: list[tuple[QObject, bool]] = []

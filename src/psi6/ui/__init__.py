@@ -4,10 +4,18 @@ from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
 from psi6.ui.banner import Banner
 from psi6.ui.busy import BusyOverlay
-from psi6.ui.buttons import danger_button, ghost_button, link_button, primary_button, text_button
+from psi6.ui.buttons import (
+    danger_button,
+    ghost_button,
+    is_loading,
+    link_button,
+    primary_button,
+    set_loading,
+    text_button,
+)
 from psi6.ui.chat import Composer, MessageList
 from psi6.ui.check_list import CheckItem, CheckList
-from psi6.ui.chrome import PageHeader, Panel, StatCard
+from psi6.ui.chrome import Card, PageHeader, Panel, StatCard
 from psi6.ui.collapsible import Collapsible
 from psi6.ui.column_picker import ColumnPicker, ColumnState, column_toggle_menu
 from psi6.ui.command_palette import Command, CommandPalette
@@ -61,6 +69,7 @@ from psi6.ui.tone import Tone
 from psi6.ui.transport import TransportBar
 from psi6.ui.tray import TrayIcon
 from psi6.ui.tree_view import TreeColumn, TreeNode, TreeView
+from psi6.ui.underline_tabs import UnderlineTabs
 from psi6.ui.workbench import ChangeList, ChangeRow, ToolTile
 from psi6.ui.workspace import Breadcrumb, ToolBar, Workspace
 
@@ -70,6 +79,7 @@ __all__ = [
     "Banner",
     "Breadcrumb",
     "BusyOverlay",
+    "Card",
     "ChangeList",
     "ChangeRow",
     "CheckItem",
@@ -137,6 +147,7 @@ __all__ = [
     "ToolTile",
     "TransportBar",
     "TrayIcon",
+    "UnderlineTabs",
     "TreeColumn",
     "TreeNode",
     "TreeView",
@@ -155,10 +166,12 @@ __all__ = [
     "ghost_button",
     "inform",
     "install_press_scale",
+    "is_loading",
     "link_button",
     "primary_button",
     "pydantic_form",
     "pydantic_settings",
+    "set_loading",
     "set_style",
     "text_button",
     "warn",

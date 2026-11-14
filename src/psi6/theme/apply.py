@@ -12,11 +12,12 @@ from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QLayout, QPushButton, QStyleFactory, QWidget
 
 from psi6.theme.chrome import chrome_images
+from psi6.theme.colors import mix_hex
 from psi6.theme.tokens import DEFAULT_TOKENS, Tokens
 
 _FAMILY_RE = re.compile(r'"[^"]*"|\'[^\']*\'|[^,]+')
 
-# 焦点环是可选能力：App(focus_ring=...) 决定是否绘制，默认关闭。
+# 焦点环由 App(focus_ring=...) 决定是否绘制。App 默认关闭。
 # 存成 QApplication 的 property，让逐控件重刷按钮的所有路径（restyle /
 # PaletteChange 事件过滤器）都读到同一份开关。
 _FOCUS_RING_KEY = "psi6FocusRingEnabled"
@@ -174,12 +175,12 @@ def _indicator_css(tokens: Tokens, *, focus_ring: bool = True) -> str:
     images = chrome_images(t)
     box = max(14, t.icon_size)
     check_radius = max(2, t.radius - 2)
-    ring = max(1, t.focus_ring_width)
+    # 焦点环画在整行外侧，不画在指示器上。指示器边一旦从 1px 加粗，
+    # 内容盒缩小，勾选图被裁；失焦后旧边像素还留在原处。
+    # ``focus_ring`` 只决定整行要不要环，两种模式的指示器都只关掉原生虚线框。
+    _ = focus_ring
     selector = "QCheckBox::indicator:focus, QRadioButton::indicator:focus"
-    if focus_ring:
-        indicator_focus = f"{selector} {{\n    border: {ring}px solid {t.color_focus};\n}}"
-    else:
-        indicator_focus = f"{selector} {{\n    outline: none;\n}}"
+    indicator_focus = f"{selector} {{\n    outline: none;\n}}"
     return f"""
 QCheckBox::indicator, QRadioButton::indicator {{
     width: {box}px;
@@ -208,7 +209,7 @@ QCheckBox::indicator:indeterminate {{
     image: url({images["minus_on"]});
 }}
 QRadioButton::indicator:checked {{
-    background: {t.color_primary};
+    background: {t.color_surface};
     border-color: {t.color_primary};
     image: url({images["dot_on"]});
 }}
@@ -222,8 +223,8 @@ QCheckBox::indicator:checked:disabled, QCheckBox::indicator:indeterminate:disabl
     image: url({images["check_muted"]});
 }}
 QRadioButton::indicator:checked:disabled {{
-    background: {t.color_border};
-    border-color: {t.color_border_subtle};
+    background: {t.color_surface};
+    border-color: {t.color_muted};
     image: url({images["dot_muted"]});
 }}
 """
@@ -232,8 +233,8 @@ QRadioButton::indicator:checked:disabled {{
 def build_stylesheet(tokens: Tokens, *, focus_ring: bool = True) -> str:
     """由 token 生成全局 QSS。覆盖内部工具会碰到的原生控件。
 
-    ``focus_ring=False`` 时不画焦点环，只抑制 Qt 原生焦点框；供 ``App`` 默认关闭
-    焦点样式用。默认是 ``True``，保留键盘可见性能力与既有主题断言。
+    ``focus_ring=False`` 时不画焦点环，只抑制 Qt 原生焦点框。这个函数默认仍是
+    ``True``，单独预览和既有主题断言还能看到环。``App`` 默认关掉，因为有的控件上环很难看。
     """
 
     t = tokens.resolve_states()
@@ -256,8 +257,66 @@ def build_stylesheet(tokens: Tokens, *, focus_ring: bool = True) -> str:
     title_w = t.font_weight_title
     body_w = t.font_weight_body
     setting_h = max(ch + t.space_md, 36)
+    # 以下几何全部由 token 推导，不再写字面量圆角。01 §圆角规定只有三档：
+    # 控件/容器用 ``radius``、复选框用 ``radius - 2``、自绘窗口用 ``window_radius``。
+    # 小方标（快捷键、标签角标）也取 ``radius - 2``，圆形标记取半边宽。
+    small_r = max(2, r - 2)
+    # 圆形标记（步骤点）的半径：边长取 ``control_height_sm``，圆角取半边。
+    disc_r = max(6, t.control_height_sm // 2)
+    # 菜单勾选/单选标记边长，与图标同档但不超过 14，避免撑高菜单行。
+    mark = max(10, min(t.icon_size, 14))
+    # 滚动条与滑块手柄：轨道用一半高度做胶囊，手柄本身是正圆。
+    bar = max(8, t.icon_size - 6)
+    groove = max(2, small_r)
+    knob = max(10, t.icon_size - 2)
     arrows = _arrow_css(t)
     indicators = _indicator_css(t, focus_ring=focus_ring)
+    # 勾选框 / 单选框的环包住「指示器 + 标签」整行，边宽始终预留，
+    # 聚焦只改颜色，外框不跳。指示器自己的边保持 1px。
+    if focus_ring:
+        choice_frame = f"""\
+QCheckBox, QRadioButton {{
+    spacing: {t.space_sm}px;
+    background: transparent;
+    border: {ring}px solid transparent;
+    border-radius: {small_r}px;
+    padding: 1px {t.space_sm}px;
+    outline: none;
+}}
+QCheckBox:hover, QRadioButton:hover {{
+    color: {t.color_text};
+}}
+QCheckBox:disabled, QRadioButton:disabled {{
+    color: {t.color_disabled};
+    border-color: transparent;
+}}
+QCheckBox:focus, QRadioButton:focus {{
+    color: {t.color_text};
+    border-color: {t.color_focus};
+}}
+QCheckBox:disabled:focus, QRadioButton:disabled:focus {{
+    border-color: transparent;
+    outline: none;
+}}
+"""
+    else:
+        choice_frame = f"""\
+QCheckBox, QRadioButton {{
+    spacing: {t.space_sm}px;
+    background: transparent;
+    outline: none;
+}}
+QCheckBox:hover, QRadioButton:hover {{
+    color: {t.color_text};
+}}
+QCheckBox:disabled, QRadioButton:disabled {{
+    color: {t.color_disabled};
+}}
+QCheckBox:focus, QRadioButton:focus {{
+    color: {t.color_text};
+    outline: none;
+}}
+"""
     icons = chrome_images(t)
     focus = _focus_rules(
         t,
@@ -294,7 +353,7 @@ QLabel#psi6Hint, QLabel#psi6SectionHint, QLabel#psi6EmptyHint, QLabel#psi6Breadc
     font-size: {t.font_size_sm}px;
 }}
 QLabel#psi6Hint[tone="success"] {{
-    color: {t.color_primary};
+    color: {t.color_success};
 }}
 QLabel#psi6Error {{
     color: {t.color_danger};
@@ -307,7 +366,7 @@ QLabel#psi6FormGroup, QLabel#psi6BreadcrumbCurrent {{
     color: {t.color_text};
 }}
 QLabel#psi6SectionTitle, QLabel#psi6EmptyTitle {{
-    font-size: {t.font_size + 2}px;
+    font-size: {t.font_size}px;
 }}
 QLabel#psi6StatSuccess {{ color: {t.color_success}; font-weight: {title_w}; }}
 QLabel#psi6StatWarning {{ color: {t.color_warning}; font-weight: {title_w}; }}
@@ -334,7 +393,7 @@ QWidget#psi6Stage {{
 QPlainTextEdit#psi6Paper, QPlainTextEdit#psi6Paper:hover, QPlainTextEdit#psi6Paper:focus {{
     background: {t.color_surface};
     border: none;
-    padding: 28px 36px;
+    padding: {t.space_lg}px {t.space_lg}px;
     color: {t.color_text};
     font-size: {t.font_size}px;
 }}
@@ -356,8 +415,24 @@ QPlainTextEdit:disabled, QDateEdit:disabled, QTimeEdit:disabled, QDateTimeEdit:d
     background: {t.color_bg};
     border: 1px solid {t.color_border_subtle};
 }}
+/* 错误边要压过焦点规则。Qt 样式表只有一条边，错误聚焦时保留红色控件边，
+   不能再在它外面加一圈 color_focus。错误句子仍在控件下方。 */
+QLineEdit[invalid="true"], QComboBox[invalid="true"],
+QSpinBox[invalid="true"], QDoubleSpinBox[invalid="true"],
+QPlainTextEdit[invalid="true"], QTextEdit[invalid="true"],
+QDateEdit[invalid="true"], QTimeEdit[invalid="true"], QDateTimeEdit[invalid="true"],
+QWidget#psi6PathPicker[invalid="true"] QLineEdit,
+QLineEdit[invalid="true"]:focus, QComboBox[invalid="true"]:focus,
+QSpinBox[invalid="true"]:focus, QDoubleSpinBox[invalid="true"]:focus,
+QPlainTextEdit[invalid="true"]:focus, QTextEdit[invalid="true"]:focus,
+QDateEdit[invalid="true"]:focus, QTimeEdit[invalid="true"]:focus,
+QDateTimeEdit[invalid="true"]:focus,
+QWidget#psi6PathPicker[invalid="true"] QLineEdit:focus {{
+    border: 1px solid {t.color_danger};
+    padding: 0 {pad_x}px;
+    min-height: {ch}px;
+}}
 QLineEdit[invalid="true"], QWidget#psi6PathPicker[invalid="true"] QLineEdit {{
-    border-color: {t.color_danger};
     background: {t.color_surface};
 }}
 QLineEdit#psi6SearchField {{
@@ -503,25 +578,50 @@ QHeaderView::section {{
     font-weight: 600;
     color: {t.color_muted};
 }}
+QHeaderView::down-arrow {{
+    image: url({icons["sort_desc"]});
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: {max(8, t.icon_size - 4)}px;
+    height: {max(8, t.icon_size - 4)}px;
+    right: {t.space_sm}px;
+}}
+QHeaderView::up-arrow {{
+    image: url({icons["sort_asc"]});
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: {max(8, t.icon_size - 4)}px;
+    height: {max(8, t.icon_size - 4)}px;
+    right: {t.space_sm}px;
+}}
+QTableView QTableCornerButton::section, QTreeView QTableCornerButton::section {{
+    background: {t.color_surface};
+    border: none;
+    border-bottom: 1px solid {t.color_border};
+    border-right: 1px solid {t.color_border_subtle};
+}}
+QTreeView::branch {{
+    background: transparent;
+}}
+QTreeView::branch:has-children:closed {{
+    image: url({icons["branch_closed"]});
+}}
+QTreeView::branch:has-children:open {{
+    image: url({icons["branch_open"]});
+}}
+QTreeView::branch:has-children:closed:disabled {{
+    image: url({icons["branch_closed_disabled"]});
+}}
+QTreeView::branch:selected {{
+    background: {selected};
+}}
 QStatusBar {{
     background: {t.color_surface};
     border-top: 1px solid {t.color_border};
     color: {t.color_muted};
     min-height: {max(ch - 8, 20)}px;
 }}
-QCheckBox, QRadioButton {{
-    spacing: {t.space_sm}px;
-    background: transparent;
-}}
-QCheckBox:hover, QRadioButton:hover {{
-    color: {t.color_text};
-}}
-QCheckBox:disabled, QRadioButton:disabled {{
-    color: {t.color_disabled};
-}}
-QCheckBox:focus, QRadioButton:focus {{
-    color: {t.color_text};
-}}
+{choice_frame}
 QGroupBox, QWidget#psi6Section {{
     font-weight: 600;
     border: 1px solid {t.color_border};
@@ -559,7 +659,7 @@ QWidget#psi6Banner[tone="info"] {{
 }}
 QLabel#psi6Badge {{
     padding: 2px 8px;
-    border-radius: 9px;
+    border-radius: {r}px;
     font-size: {t.font_size_sm}px;
     font-weight: 600;
     background: {t.color_hover};
@@ -567,8 +667,8 @@ QLabel#psi6Badge {{
     max-height: 22px;
 }}
 QLabel#psi6Badge[tone="success"] {{
-    background: {t.color_selected};
-    color: {t.color_primary};
+    background: {t.color_hover};
+    color: {t.color_success};
 }}
 QLabel#psi6Badge[tone="warning"] {{
     background: {t.color_warning};
@@ -666,7 +766,9 @@ QMenu {{
     padding: 4px;
 }}
 QMenu::item {{
-    padding: {t.space_sm}px {t.space_lg}px;
+    padding: {t.space_sm}px {t.space_lg}px {t.space_sm}px {t.space_md + mark + t.space_sm}px;
+    border-radius: {small_r}px;
+    margin: 1px 2px;
 }}
 QMenu::item:disabled {{
     color: {t.color_disabled};
@@ -678,6 +780,25 @@ QMenu::separator {{
     height: 1px;
     background: {t.color_border};
     margin: 4px 8px;
+}}
+/* 勾选与单选标记：QSS 一旦接管 QMenu::indicator，Qt 就不再代画，图形要自己给。
+   菜单项左侧留出标记位，勾选出现时文字不左右跳动。 */
+QMenu::indicator {{
+    width: {mark}px;
+    height: {mark}px;
+    left: {t.space_sm}px;
+}}
+QMenu::indicator:checked {{
+    image: url({icons["menu_check"]});
+}}
+QMenu::indicator:exclusive:checked {{
+    image: url({icons["menu_dot"]});
+}}
+QMenu::indicator:checked:disabled {{
+    image: url({icons["menu_check_disabled"]});
+}}
+QMenu::indicator:exclusive:checked:disabled {{
+    image: url({icons["menu_dot_disabled"]});
 }}
 QToolTip {{
     background: {t.color_surface};
@@ -694,27 +815,68 @@ QSplitter::handle:horizontal {{
 QSplitter::handle:vertical {{
     height: 1px;
 }}
+/* 日历弹窗：QDateEdit 的 calendarPopup 打开后是一个独立顶层控件，
+   不接管的话会露出 Fusion 的蓝选中块，和周围不是一套。 */
+QCalendarWidget {{
+    background: {t.color_surface};
+    border: 1px solid {t.color_border};
+}}
+QCalendarWidget QWidget#qt_calendar_navigationbar {{
+    background: {t.color_surface};
+    border-bottom: 1px solid {t.color_border};
+}}
+QCalendarWidget QToolButton {{
+    background: transparent;
+    border: none;
+    border-radius: {small_r}px;
+    padding: 2px 6px;
+    color: {t.color_text};
+    font-weight: {title_w};
+}}
+QCalendarWidget QToolButton:hover {{
+    background: {t.color_hover};
+}}
+QCalendarWidget QToolButton::menu-indicator {{
+    image: none;
+}}
+QCalendarWidget QSpinBox {{
+    background: transparent;
+    border: 1px solid {t.color_control_border};
+    border-radius: {small_r}px;
+    color: {t.color_text};
+}}
+QCalendarWidget QAbstractItemView {{
+    background: {t.color_surface};
+    color: {t.color_text};
+    selection-background-color: {selected};
+    selection-color: {t.color_text};
+    border: none;
+    outline: none;
+}}
+QCalendarWidget QAbstractItemView:disabled {{
+    color: {t.color_disabled};
+}}
 QScrollBar:vertical {{
-    background: {t.color_bg};
-    width: 10px;
+    background: transparent;
+    width: {bar}px;
     margin: 0;
     border: none;
 }}
 QScrollBar::handle:vertical {{
     background: {t.color_border};
-    min-height: 24px;
-    border-radius: 4px;
+    min-height: {bar * 2 + 4}px;
+    border-radius: {bar // 2}px;
 }}
 QScrollBar:horizontal {{
-    background: {t.color_bg};
-    height: 10px;
+    background: transparent;
+    height: {bar}px;
     margin: 0;
     border: none;
 }}
 QScrollBar::handle:horizontal {{
     background: {t.color_border};
-    min-width: 24px;
-    border-radius: 4px;
+    min-width: {bar * 2 + 4}px;
+    border-radius: {bar // 2}px;
 }}
 QScrollBar::handle:vertical:hover,
 QScrollBar::handle:horizontal:hover {{
@@ -731,19 +893,61 @@ QAbstractScrollArea::corner {{
     background: {t.color_bg};
 }}
 QSlider::groove:horizontal {{
-    height: 4px;
+    height: {groove}px;
     background: {t.color_border};
-    border-radius: 2px;
+    border-radius: {groove // 2}px;
+}}
+QSlider::sub-page:horizontal {{
+    background: {t.color_primary};
+    border-radius: {groove // 2}px;
+}}
+QSlider::add-page:horizontal {{
+    background: {t.color_border};
+    border-radius: {groove // 2}px;
 }}
 QSlider::handle:horizontal {{
-    width: 14px;
-    height: 14px;
-    margin: -5px 0;
-    border-radius: 7px;
+    width: {knob}px;
+    height: {knob}px;
+    margin: -{(knob - groove) // 2}px 0;
+    border-radius: {knob // 2}px;
     background: {t.color_primary};
+    border: none;
 }}
 QSlider::handle:horizontal:hover {{
     background: {primary_hover};
+}}
+QSlider::groove:vertical {{
+    width: {groove}px;
+    background: {t.color_border};
+    border-radius: {groove // 2}px;
+}}
+QSlider::sub-page:vertical {{
+    background: {t.color_border};
+    border-radius: {groove // 2}px;
+}}
+QSlider::add-page:vertical {{
+    background: {t.color_primary};
+    border-radius: {groove // 2}px;
+}}
+QSlider::handle:vertical {{
+    width: {knob}px;
+    height: {knob}px;
+    margin: 0 -{(knob - groove) // 2}px;
+    border-radius: {knob // 2}px;
+    background: {t.color_primary};
+    border: none;
+}}
+QSlider::handle:vertical:hover {{
+    background: {primary_hover};
+}}
+QSlider:disabled::handle:horizontal, QSlider:disabled::handle:vertical {{
+    background: {t.color_disabled};
+}}
+QSlider:disabled::add-page:horizontal, QSlider:disabled::sub-page:vertical {{
+    background: {t.color_border_subtle};
+}}
+QSlider:disabled::sub-page:horizontal, QSlider:disabled::add-page:vertical {{
+    background: {t.color_border_subtle};
 }}
 QToolButton {{
     border: 1px solid transparent;
@@ -772,7 +976,7 @@ QWidget#psi6Sidebar {{
 }}
 QLabel#psi6SidebarTitle, QLabel#psi6BrandTitle {{
     font-weight: {title_w};
-    font-size: {t.font_size + 4}px;
+    font-size: {title_fs}px;
     color: {t.color_text};
     background: transparent;
     padding: 0;
@@ -784,8 +988,9 @@ QLabel#psi6Eyebrow {{
     background: transparent;
     letter-spacing: 1px;
 }}
+/* 没有 Display 档：页面标题到 ``font_size_title`` 为止（01 §字体）。 */
 QLabel#psi6Display {{
-    font-size: {title_fs + 4}px;
+    font-size: {title_fs}px;
     font-weight: {title_w};
     color: {t.color_text};
     background: transparent;
@@ -793,10 +998,10 @@ QLabel#psi6Display {{
 QLineEdit#psi6TitleInput, QLineEdit#psi6TitleInput:hover, QLineEdit#psi6TitleInput:focus {{
     border: none;
     background: transparent;
-    font-size: {title_fs + 2}px;
+    font-size: {title_fs}px;
     font-weight: {title_w};
     padding: 0;
-    min-height: 28px;
+    min-height: {t.control_height_sm}px;
 }}
 QLabel#psi6NavSection {{
     color: {t.color_muted};
@@ -807,16 +1012,16 @@ QLabel#psi6NavSection {{
 }}
 QWidget#psi6BrandMark {{
     background: {t.color_selected};
-    border-radius: 11px;
+    border-radius: {max(r, 8)}px;
 }}
 QWidget#psi6MetricIcon {{
     background: {t.color_selected};
-    border-radius: 7px;
+    border-radius: {small_r}px;
 }}
 QLabel#psi6MiniMark {{
     background: {t.color_selected};
     color: {t.color_primary};
-    border-radius: 6px;
+    border-radius: {small_r}px;
     font-weight: {title_w};
 }}
 QWidget#psi6ContentHeader {{
@@ -870,8 +1075,13 @@ QWidget#psi6StatCard, QWidget#psi6Panel {{
     border: 1px solid {t.color_border};
     border-radius: {r}px;
 }}
+QWidget#psi6Card {{
+    background: {t.color_surface};
+    border: 1px solid {t.color_border_subtle};
+    border-radius: {r}px;
+}}
 QLabel#psi6StatValue {{
-    font-size: {title_fs + 4}px;
+    font-size: {title_fs}px;
     font-weight: {title_w};
 }}
 QWidget#psi6ToolTile {{
@@ -891,10 +1101,10 @@ QWidget#psi6GalleryHeader {{
 }}
 QWidget#psi6GalleryBrand {{
     background: {t.color_primary};
-    border-radius: 12px;
+    border-radius: {max(r, 8)}px;
 }}
 QLabel#psi6GalleryTitle {{
-    font-size: {title_fs + 8}px;
+    font-size: {title_fs}px;
     font-weight: {title_w};
     color: {t.color_text};
 }}
@@ -904,7 +1114,7 @@ QLabel#psi6GallerySub {{
 }}
 QLabel#psi6GalleryCat {{
     color: {t.color_text};
-    font-size: {t.font_size + 1}px;
+    font-size: {t.font_size}px;
     font-weight: {title_w};
 }}
 QWidget#psi6Tile {{
@@ -934,21 +1144,21 @@ QWidget#psi6Tile:hover QLabel#psi6TileArrow {{
 }}
 QLabel#psi6TileTag {{
     color: {t.color_muted};
-    font-size: {t.font_size_sm - 1}px;
+    font-size: {t.font_size_sm}px;
     background: {t.color_sunken};
     border: 1px solid {t.color_border_subtle};
-    border-radius: {max(4, r - 2)}px;
+    border-radius: {small_r}px;
     padding: 2px 8px;
 }}
 QWidget#psi6Bubble[role="assistant"] {{
     background: {t.color_surface};
     border: 1px solid {t.color_border};
-    border-radius: 8px;
+    border-radius: {r}px;
 }}
 QWidget#psi6Bubble[role="user"] {{
     background: {t.color_user_bubble};
     color: {t.color_user_on_bubble};
-    border-radius: 8px;
+    border-radius: {r}px;
 }}
 QWidget#psi6Bubble[role="user"] QLabel {{
     color: {t.color_user_on_bubble};
@@ -1039,7 +1249,7 @@ QLabel#psi6Kbd {{
     font-size: {t.font_size_sm}px;
     padding: 1px 6px;
     border: 1px solid {t.color_border};
-    border-radius: 3px;
+    border-radius: {small_r}px;
     background: {t.color_sunken};
     color: {t.color_muted};
 }}
@@ -1067,7 +1277,7 @@ QLabel#psi6DiffCtx {{
     color: {t.color_text};
 }}
 QLabel#psi6StepMark {{
-    border-radius: 13px;
+    border-radius: {disc_r}px;
     background: {t.color_hover};
     color: {t.color_muted};
     font-size: {t.font_size_sm}px;
@@ -1111,7 +1321,8 @@ def apply_theme(
 ) -> None:
     """安装字体、Fusion、调色板与样式表，使未封装的原生控件也可直接使用。
 
-    ``focus_ring=False`` 关闭全局与逐控件按钮的焦点环（App 默认如此）。开关要写在
+    ``focus_ring=False`` 关闭全局与逐控件按钮的焦点环。这个函数默认仍是打开；
+    ``App`` 默认关掉。开关要写在
     ``setPalette`` 之前：PaletteChange 事件过滤器会立刻按它重刷主题化按钮。
     """
 
@@ -1253,8 +1464,7 @@ def _build_button_stylesheet(kind: str, t: Tokens, *, focus_ring: bool) -> str:
     # 有边框按钮的焦点环：按差值收紧 padding 与 min-height，聚焦时外框尺寸不变
     focus_pad = max(0, pad_x - (ring - 1))
     focus_min_h = max(12, ch - 2 * (ring - 1))
-    # 无边框按钮（主/危险/链接/导航/分段）基础边框为 0，焦点环要多扣 1px
-    focus_pad_nb = max(0, pad_x - ring)
+    # 无边框的导航和分段按钮，焦点环要按整圈边框再收一截高度。
     focus_min_h_nb = max(12, ch - 2 * ring)
     nav_focus_pad = max(0, t.space_sm - ring)
     title_w = t.font_weight_title
@@ -1263,9 +1473,7 @@ def _build_button_stylesheet(kind: str, t: Tokens, *, focus_ring: bool) -> str:
     if focus_ring:
         primary_focus = (
             "QPushButton:focus {\n"
-            f"    border: {ring}px solid {t.color_on_primary};\n"
-            f"    padding: 0 {focus_pad_nb}px;\n"
-            f"    min-height: {focus_min_h_nb}px;\n"
+            f"    border-color: {t.color_focus};\n"
             "    outline: none;\n"
             "}"
         )
@@ -1298,41 +1506,72 @@ def _build_button_stylesheet(kind: str, t: Tokens, *, focus_ring: bool) -> str:
         primary_focus = danger_focus = ghost_focus = neutral_focus
         link_focus = segment_focus = nav_focus = neutral_focus
 
+    # Qt 样式表画不出「填充和环之间」的父级色缝：outline 不绘制，边框紧贴填充。
+    # 焦点环预留成透明边框，2px 父级表面缝放在 margin。缝因此在环的外侧。
+    # 聚焦只改 border-color，padding 与 min-height 不动，外框尺寸不跳。
+    disabled_edge = ring if focus_ring else 1
     if kind == "psi6Primary":
+        frame = (
+            f"border: {ring}px solid transparent;\n    margin: 2px;"
+            if focus_ring
+            else "border: none;"
+        )
         return f"""\
 QPushButton {{
     background: {t.color_primary};
     color: {t.color_on_primary};
-    border: none;
+    {frame}
     font-weight: {title_w};
 }}
 QPushButton:hover {{ background: {primary_hover}; }}
 QPushButton:pressed {{ background: {primary_pressed}; }}
-QPushButton:disabled {{ background: {t.color_border}; color: {t.color_muted}; border: none; }}
-{primary_focus}"""
+QPushButton:disabled {{
+    background: {t.color_bg};
+    color: {t.color_disabled};
+    border: {disabled_edge}px solid {t.color_border_subtle};
+}}
+{primary_focus}
+QPushButton[psi6Loading="true"] {{
+    padding-left: {t.icon_size + t.space_md}px;
+}}"""
     if kind == "psi6Danger":
+        frame = (
+            f"border: {ring}px solid transparent;\n    margin: 2px;"
+            if focus_ring
+            else "border: none;"
+        )
         return f"""\
 QPushButton {{
     background: {t.color_danger};
     color: {t.color_on_primary};
-    border: none;
+    {frame}
     font-weight: {title_w};
 }}
 QPushButton:hover {{ background: {danger_hover}; }}
 QPushButton:pressed {{ background: {danger_pressed}; }}
-QPushButton:disabled {{ background: {t.color_border}; color: {t.color_muted}; border: none; }}
-{danger_focus}"""
+QPushButton:disabled {{
+    background: {t.color_bg};
+    color: {t.color_disabled};
+    border: {disabled_edge}px solid {t.color_border_subtle};
+}}
+{danger_focus}
+QPushButton[psi6Loading="true"] {{
+    padding-left: {t.icon_size + t.space_md}px;
+}}"""
     if kind == "psi6Ghost":
         return f"""\
 QPushButton {{
-    background: {t.color_surface};
-    border: 1px solid {t.color_control_border};
+    background: {t.color_elevated};
+    border: 1px solid {t.color_border};
     color: {t.color_text};
 }}
-QPushButton:hover {{ background: {t.color_hover}; border-color: {t.color_primary}; }}
-QPushButton:pressed {{ background: {t.color_pressed}; border-color: {t.color_primary}; }}
+QPushButton:hover {{ background: {t.color_hover}; }}
+QPushButton:pressed {{ background: {t.color_pressed}; }}
 {ghost_focus}
-QPushButton:disabled {{ color: {t.color_disabled}; background: transparent; border-color: {t.color_border_subtle}; }}"""
+QPushButton:disabled {{ color: {t.color_disabled}; background: {t.color_bg}; border-color: {t.color_border_subtle}; }}
+QPushButton[psi6Loading="true"] {{
+    padding-left: {t.icon_size + t.space_md}px;
+}}"""
     if kind == "psi6Link":
         return f"""\
 QPushButton {{
@@ -1346,7 +1585,10 @@ QPushButton {{
 QPushButton:hover {{ background: transparent; border: none; color: {t.color_focus}; }}
 QPushButton:pressed {{ background: transparent; }}
 {link_focus}
-QPushButton:disabled {{ color: {t.color_disabled}; }}"""
+QPushButton:disabled {{ color: {t.color_disabled}; }}
+QPushButton[psi6Loading="true"] {{
+    padding-left: {t.icon_size + t.space_md}px;
+}}"""
     if kind == "psi6Segment":
         return f"""\
 QPushButton {{
@@ -1372,34 +1614,92 @@ QPushButton {{
 }}
 QPushButton:hover {{ color: {t.color_text}; background: transparent; border: none; }}"""
     if kind == "psi6Tag":
+        # 语气表：成功、警告、错误、信息用对应语义色作字色，填充是该色与
+        # ``color_bg`` 的弱混合（04 §展示）。不再新增 token 字段。
+        tones = {
+            "neutral": (t.color_hover, t.color_muted, t.color_control_border),
+            "info": (
+                mix_hex(t.color_info, t.color_bg, 0.88),
+                t.color_info,
+                mix_hex(t.color_info, t.color_bg, 0.72),
+            ),
+            "success": (
+                mix_hex(t.color_success, t.color_bg, 0.88),
+                t.color_success,
+                mix_hex(t.color_success, t.color_bg, 0.72),
+            ),
+            "warning": (
+                mix_hex(t.color_warning, t.color_bg, 0.88),
+                t.color_warning,
+                mix_hex(t.color_warning, t.color_bg, 0.72),
+            ),
+            "error": (
+                mix_hex(t.color_danger, t.color_bg, 0.88),
+                t.color_danger,
+                mix_hex(t.color_danger, t.color_bg, 0.72),
+            ),
+        }
+        tone_rules = "\n".join(
+            f'QPushButton[tone="{name}"] {{\n'
+            f"    background: {bg};\n"
+            f"    color: {fg};\n"
+            f"    border-color: {edge};\n"
+            f"}}"
+            for name, (bg, fg, edge) in tones.items()
+        )
         return f"""\
 QPushButton {{
-    padding: 2px 10px;
-    border-radius: 11px;
+    padding: 2px {t.space_sm + 2}px;
+    border-radius: {max(2, ch // 2)}px;
     font-size: {t.font_size_sm}px;
-    font-weight: 600;
+    font-weight: {title_w};
     background: {t.color_hover};
     color: {t.color_muted};
     border: 1px solid {t.color_control_border};
 }}
+{tone_rules}
 QPushButton:hover {{ border-color: {t.color_primary}; color: {t.color_text}; }}
 QPushButton:checked {{ background: {t.color_info}; color: {t.color_on_primary}; border: none; }}
 QPushButton:disabled {{ color: {t.color_disabled}; background: {t.color_bg}; border-color: {t.color_border_subtle}; }}"""
     if kind == "psi6NavItem":
+        # 选中项：``color_selected`` 填充 + 左侧 2px 主色竖条 + 主色图标（02 §2、D11）。
+        # 竖条占的是 ``border-left``，因此左侧内边距扣掉同样的宽度：选中前后文字
+        # 的水平位置不变，聚焦时（整圈环替换边框）也停在同一个位置。
+        accent = max(2, ring)
+        nav_pad_l = max(0, t.space_sm - accent)
         return f"""\
 QPushButton {{
     text-align: left;
-    padding: 0 {t.space_sm}px;
+    padding: 0 {t.space_sm}px 0 {nav_pad_l}px;
     min-height: {ch}px;
     border: none;
+    border-left: {accent}px solid transparent;
     border-radius: {r}px;
     background: transparent;
     color: {t.color_sidebar_text};
 }}
 QPushButton:hover, QPushButton[psi6State="hover"] {{ background: {t.color_hover}; color: {t.color_text}; }}
 QPushButton:pressed, QPushButton[psi6State="pressed"] {{ background: {t.color_pressed}; color: {t.color_text}; }}
-QPushButton:checked, QPushButton[psi6State="selected"] {{ background: {t.color_selected}; color: {t.color_text}; font-weight: {title_w}; }}
+QPushButton:checked, QPushButton[psi6State="selected"] {{
+    background: {t.color_selected};
+    border-left-color: {t.color_primary};
+    color: {t.color_text};
+    font-weight: {title_w};
+}}
 {nav_focus}
+/* 聚焦时整圈环替换了边框，选中的主色竖条要补回来，否则当前页在键盘操作中
+   会失去唯一的形状标记（选中填充对比侧栏底只有约 1.1）。 */
+QPushButton:checked:focus, QPushButton[psi6State="selected"]:focus {{
+    border-left-color: {t.color_primary};
+}}
+/* 竖条可以关掉：``AppShell.set_nav_accent(False)`` 把属性写成 off，
+   选中只留填充，文字位置不变。颜色始终是 color_primary，不另开字段。 */
+QPushButton[psi6NavAccent="off"]:checked,
+QPushButton[psi6NavAccent="off"][psi6State="selected"],
+QPushButton[psi6NavAccent="off"]:checked:focus,
+QPushButton[psi6NavAccent="off"][psi6State="selected"]:focus {{
+    border-left-color: transparent;
+}}
 QPushButton:disabled {{ color: {t.color_disabled}; background: transparent; }}
 QPushButton[compact="true"] {{ text-align: center; padding: 0; }}
 QLabel#psi6NavLabel {{
@@ -1418,14 +1718,14 @@ QLabel#psi6NavCaption {{
 QLabel#psi6NavBadge {{
     background: {t.color_hover};
     color: {t.color_muted};
-    border-radius: 5px;
-    padding: 1px 6px;
+    border-radius: {max(2, r - 2)}px;
+    padding: 1px {t.space_sm - 2}px;
     font-size: {t.font_size_sm}px;
 }}
 QLabel#psi6MiniMark {{
     background: {t.color_selected};
     color: {t.color_primary};
-    border-radius: 6px;
+    border-radius: {max(2, r - 2)}px;
     font-weight: {title_w};
 }}"""
     return ""
