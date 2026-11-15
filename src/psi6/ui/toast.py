@@ -11,8 +11,16 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWi
 
 from psi6.theme.runtime import token_ms
 from psi6.ui._tone import set_tone
-from psi6.ui.icon import IconButton
-from psi6.ui.tone import Tone
+from psi6.ui.icon import Icon, IconButton
+from psi6.ui.tone import Tone, normalize_tone
+
+_TOAST_ICONS = {
+    "success": "check",
+    "warning": "warning",
+    "error": "x",
+    "info": "info",
+    "neutral": "info",
+}
 
 try:  # 该事件在较新的 Qt 绑定里才有；读屏桥缺失时本就是 no-op
     from PySide6.QtGui import QAccessibleAnnouncementEvent
@@ -75,9 +83,12 @@ class ToastCard(QWidget):
         self._anim_start = 0.0
         self._anim_duration = 0
 
+        resolved = normalize_tone(tone)
         row = QHBoxLayout(self)
         row.setContentsMargins(12, 10, 8, 10)
         row.setSpacing(8)
+        self._icon = Icon(_TOAST_ICONS[resolved], size=18, tone=resolved)
+        row.addWidget(self._icon, alignment=Qt.AlignmentFlag.AlignVCenter)
         self._label = QLabel(message)
         self._label.setWordWrap(True)
         self._label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -103,7 +114,8 @@ class ToastCard(QWidget):
         layout = self.layout()
         margins = layout.contentsMargins() if layout is not None else self.contentsMargins()
         close_w = self._close.width() or 28
-        inner = max(64, width - margins.left() - margins.right() - close_w - 8)
+        icon_w = self._icon.width() or 18
+        inner = max(64, width - margins.left() - margins.right() - close_w - icon_w - 16)
         text_h = max(self._label.fontMetrics().height(), self._label.heightForWidth(inner))
         return margins.top() + margins.bottom() + max(text_h, self._close.height() or 28)
 

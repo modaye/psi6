@@ -81,6 +81,47 @@ def qss_icon_ref(name: str, *, color: str, size: int) -> str:
     return f"{SEARCH_PREFIX}:{path.name}"
 
 
+def qss_svg_ref(stem: str, markup: str) -> str:
+    """把完整 SVG 交给样式表。用于样式表圆边会发虚、必须整张绘制的指示器。"""
+
+    global _pruned
+    if not _pruned:
+        _pruned = True
+        cleanup_cache()
+    folder = cache_dir()
+    QDir.setSearchPaths(SEARCH_PREFIX, [str(folder.resolve())])
+    path = folder / f"{stem}.svg"
+    if not path.is_file() or path.read_text(encoding="utf-8") != markup:
+        path.write_text(markup, encoding="utf-8")
+    return f"{SEARCH_PREFIX}:{path.name}"
+
+
+def _radio_markup(box: int, *, fill: str, stroke: str, dot: str | None) -> str:
+    """整枚单选。描边内收，避免贴着图像边缘被裁成毛边。"""
+
+    stroke_w = 1.5
+    center = box / 2
+    radius = center - stroke_w / 2 - 0.5
+    rings = (
+        f'<circle cx="{center:.2f}" cy="{center:.2f}" r="{radius:.2f}" '
+        f'fill="{fill}" stroke="{stroke}" stroke-width="{stroke_w}"/>'
+    )
+    if dot is not None:
+        rings += (
+            f'<circle cx="{center:.2f}" cy="{center:.2f}" r="{radius * 0.46:.2f}" fill="{dot}"/>'
+        )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{box}" height="{box}" '
+        f'viewBox="0 0 {box} {box}">{rings}</svg>'
+    )
+
+
+def _radio_ref(kind: str, box: int, *, fill: str, stroke: str, dot: str | None) -> str:
+    parts = [_color_slug(fill), _color_slug(stroke), _color_slug(dot or "none"), str(box)]
+    stem = f"radio_{kind}_{'_'.join(parts)}"
+    return qss_svg_ref(stem, _radio_markup(box, fill=fill, stroke=stroke, dot=dot))
+
+
 def chrome_images(tokens: Tokens) -> dict[str, str]:
     """下拉与步进箭头的 QSS 图。同一套 token 只算一次，避免换肤时反复读盘比对。"""
 
@@ -98,6 +139,9 @@ def chrome_images(tokens: Tokens) -> dict[str, str]:
 def _build_chrome_images(tokens: Tokens) -> dict[str, str]:
 
     size = max(12, min(tokens.icon_size, 16))
+    radio_box = max(14, tokens.icon_size)
+    surface = tokens.color_surface
+    primary = tokens.color_primary
     # 页签关闭按钮：QSS 一旦写 background / border / image 就会接管掉 Qt 原生
     # 的叉号，所以必须自己给一份图形。
     close = max(8, min(tokens.icon_size, 12))
@@ -114,6 +158,26 @@ def _build_chrome_images(tokens: Tokens) -> dict[str, str]:
         "dot_on": qss_icon_ref("dot", color=tokens.color_primary, size=size),
         "check_muted": qss_icon_ref("check", color=tokens.color_muted, size=size),
         "dot_muted": qss_icon_ref("dot", color=tokens.color_muted, size=size),
+        # 单选整枚绘制。样式表的 border-radius 圆在 1px 边上会发虚。
+        "radio_off": _radio_ref(
+            "off", radio_box, fill=surface, stroke=tokens.color_control_border, dot=None
+        ),
+        "radio_hover": _radio_ref("hover", radio_box, fill=surface, stroke=primary, dot=None),
+        "radio_on": _radio_ref("on", radio_box, fill=surface, stroke=primary, dot=primary),
+        "radio_off_disabled": _radio_ref(
+            "off_disabled",
+            radio_box,
+            fill=tokens.color_bg,
+            stroke=tokens.color_border_subtle,
+            dot=None,
+        ),
+        "radio_on_disabled": _radio_ref(
+            "on_disabled",
+            radio_box,
+            fill=surface,
+            stroke=tokens.color_muted,
+            dot=tokens.color_muted,
+        ),
         "tab_close": qss_icon_ref("x", color=tokens.color_muted, size=close),
         "tab_close_on": qss_icon_ref("x", color=tokens.color_text, size=close),
         # 树的分支箭头：收起为右向、展开为下向。同一份图形在两种状态下着色，

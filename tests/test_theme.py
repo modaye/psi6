@@ -187,12 +187,12 @@ def test_check_and_radio_indicators_are_fully_drawn() -> None:
     assert f"background: {light.color_primary}" in checked
     assert "image: url(psi6icon:" in checked
     radio = css.split("QRadioButton::indicator:checked {", 1)[1].split("}", 1)[0]
-    assert f"background: {light.color_surface}" in radio
-    assert f"border-color: {light.color_primary}" in radio
+    assert "border: none" in radio
+    assert "image: url(psi6icon:" in radio
     assert light.color_primary.lstrip("#") in radio
     assert light.color_on_primary.lstrip("#") not in radio
     muted = css.split("QRadioButton::indicator:checked:disabled {", 1)[1].split("}", 1)[0]
-    assert f"border-color: {light.color_muted}" in muted
+    assert light.color_muted.lstrip("#") in muted
 
 
 def test_control_border_follows_border_unless_overridden() -> None:

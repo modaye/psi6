@@ -104,7 +104,7 @@
 | 工具栏内容高 | `control_height` | 36 | 30 |
 | 底栏总高 | `control_height + space_sm * 2` | 52 | 38 |
 | 标题栏（仅自绘时） | `title_bar_height` | 36 | 32 |
-| 开关 | `switch_width` × `switch_height` | 44×24 | 38×20 |
+| 开关 | `switch_width` × `switch_height` | 42×24 | 36×20 |
 
 工具栏不另设高度字段。底栏高度由控件高和垂直内边距相加，写在布局里。
 

@@ -192,10 +192,18 @@ QCheckBox::indicator {{
     border-radius: {check_radius}px;
 }}
 QRadioButton::indicator {{
-    border-radius: {box // 2}px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    image: url({images["radio_off"]});
 }}
 QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
     border-color: {t.color_primary};
+}}
+QRadioButton::indicator:hover {{
+    border: none;
+    background: transparent;
+    image: url({images["radio_hover"]});
 }}
 {indicator_focus}
 QCheckBox::indicator:checked {{
@@ -209,13 +217,18 @@ QCheckBox::indicator:indeterminate {{
     image: url({images["minus_on"]});
 }}
 QRadioButton::indicator:checked {{
-    background: {t.color_surface};
-    border-color: {t.color_primary};
-    image: url({images["dot_on"]});
+    border: none;
+    background: transparent;
+    image: url({images["radio_on"]});
 }}
 QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
     background: {t.color_bg};
     border-color: {t.color_border_subtle};
+}}
+QRadioButton::indicator:disabled {{
+    border: none;
+    background: transparent;
+    image: url({images["radio_off_disabled"]});
 }}
 QCheckBox::indicator:checked:disabled, QCheckBox::indicator:indeterminate:disabled {{
     background: {t.color_border};
@@ -223,9 +236,9 @@ QCheckBox::indicator:checked:disabled, QCheckBox::indicator:indeterminate:disabl
     image: url({images["check_muted"]});
 }}
 QRadioButton::indicator:checked:disabled {{
-    background: {t.color_surface};
-    border-color: {t.color_muted};
-    image: url({images["dot_muted"]});
+    border: none;
+    background: transparent;
+    image: url({images["radio_on_disabled"]});
 }}
 """
 
@@ -547,7 +560,7 @@ QProgressBar::chunk {{
 QTableWidget, QTableView, QTreeView, QListView {{
     border: 1px solid {t.color_border};
     border-radius: {r}px;
-    background: {t.color_sunken};
+    background: {t.color_surface};
     gridline-color: {t.color_border_subtle};
     selection-background-color: {selected};
     selection-color: {t.color_text};
@@ -1649,13 +1662,15 @@ QPushButton:hover {{ color: {t.color_text}; background: transparent; border: non
         )
         return f"""\
 QPushButton {{
-    padding: 2px {t.space_sm + 2}px;
-    border-radius: {max(2, ch // 2)}px;
+    padding: 0 {t.space_md}px;
+    min-height: {t.control_height_sm}px;
+    max-height: {t.control_height_sm}px;
+    border-radius: {t.control_height_sm // 2}px;
     font-size: {t.font_size_sm}px;
     font-weight: {title_w};
-    background: {t.color_hover};
+    background: transparent;
     color: {t.color_muted};
-    border: 1px solid {t.color_control_border};
+    border: none;
 }}
 {tone_rules}
 QPushButton:hover {{ border-color: {t.color_primary}; color: {t.color_text}; }}

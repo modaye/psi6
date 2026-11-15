@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QFontMetrics, QKeyEvent, QMouseEvent, QPaintEvent, QPen
-from PySide6.QtWidgets import QSizePolicy, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget
 
 from psi6.theme.paint import as_color, create_painter
 from psi6.theme.runtime import token_color, token_int
@@ -163,7 +163,7 @@ class _UnderlineBar(QWidget):
                 selected = index == self._current
                 painter.setPen(primary if selected else muted)
                 painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
-                if selected and self.hasFocus():
+                if selected and self.hasFocus() and _focus_ring_enabled():
                     pen = QPen(focus)
                     pen.setWidth(token_int("focus_ring_width"))
                     painter.setPen(pen)
@@ -177,6 +177,15 @@ class _UnderlineBar(QWidget):
                 painter.setBrush(primary)
                 bar = QRectF(self._x, self.height() - 3, self._w, 2)
                 painter.drawRoundedRect(bar, 1, 1)
+
+
+def _focus_ring_enabled() -> bool:
+    """跟 ``App.focus_ring``。没打开时，选中页签不画外框。"""
+
+    app = QApplication.instance()
+    if app is None:
+        return False
+    return app.property("psi6FocusRingEnabled") is True
 
 
 class UnderlineTabs(QWidget):

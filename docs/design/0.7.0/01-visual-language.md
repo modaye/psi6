@@ -180,6 +180,10 @@ Qt 用 `setPixelSize`。字号是逻辑像素。
 | `ToastCard` | 高度展开、收起销毁 | `motion_ms` / `motion_fast_ms` | 减速 |
 | `UnderlineTabs` / `TabView` 指示器 | 横坐标和宽度滑到当前页签 | `motion_ms` | 减速 |
 | 按钮加载圆弧 | 转一圈后循环 | `motion_ms` 的四倍 | 线性 |
+| `Skeleton` | 高光从左扫到右，只在可见时循环 | `motion_ms` 的五倍 | 线性 |
+| `Spinner` | 圆弧转一圈后循环，只在可见时 | `motion_ms` 的四倍 | 线性 |
+| `BusyBar` | 色块在轨道里滑过，只在可见时 | `motion_ms` 的五倍 | 进出 |
+| `Drawer` | 从右侧滑入，退出滑出 | `motion_ms` | 进入减速，退出加速 |
 | 悬停填充 | 次按钮、行、菜单项的填充 | 不做过渡 | — |
 
 最后一行是刻意的：QSS 的 `:hover` 没有过渡能力，用 `QPropertyAnimation` 模拟

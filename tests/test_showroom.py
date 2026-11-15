@@ -105,6 +105,21 @@ def test_showroom_opens_on_the_overview(qtbot: QtBot, tmp_path: Path) -> None:
     window.resize(1100, 720)
     window.show()
     qtbot.waitExposed(window)
+    titles = {
+        label.text()
+        for label in window.findChildren(QLabel)
+        if label.objectName() == "psi6SectionTitle"
+    }
+    assert {
+        "色彩 · 中性",
+        "色彩 · 强调",
+        "色彩 · 语义",
+        "缓动实验室",
+        "骨架屏",
+        "列表与分页",
+        "抽屉",
+        "对话框",
+    } <= titles
     assert window.shell.current_id() == "overview"
     assert app.focus_ring is False
     for page_id in ("buttons", "inputs", "data", "nav", "feedback", "containers", "motion"):

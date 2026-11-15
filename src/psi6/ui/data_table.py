@@ -265,6 +265,8 @@ class DataTable(QWidget):
         self._move_epoch = 0
         # 行数据换过之后列宽要重新量一次；换主题不动它。
         self._dirty_widths = False
+        self._filling = False
+        self._user_sized = False
         self._empty_title = empty_title
         self._empty_hint = empty_hint
         layout = QVBoxLayout(self)
@@ -289,7 +291,10 @@ class DataTable(QWidget):
         selection = self._table.selectionModel()
         if selection is not None:
             selection.selectionChanged.connect(self._on_selection_changed)
-        self._table.horizontalHeader().sectionClicked.connect(self._cycle_sort)
+        header = self._table.horizontalHeader()
+        header.setMinimumSectionSize(64)
+        header.sectionClicked.connect(self._cycle_sort)
+        header.sectionResized.connect(self._on_section_resized)
         self._table.doubleClicked.connect(self._activate_row)
 
         self._empty = EmptyState(empty_title, empty_hint)
@@ -672,37 +677,70 @@ class DataTable(QWidget):
                 matched.append(index)
         return matched
 
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._user_sized or self._filling or not self._columns:
+            return
+        self._filling = True
+        try:
+            self._distribute_extra()
+        finally:
+            self._filling = False
+
+    def _on_section_resized(self, _index: int, _old: int, _new: int) -> None:
+        """用户拖过列宽之后，窗口变大不再把宽度收回去。"""
+
+        if not self._filling:
+            self._user_sized = True
+
     def _apply_headers(self) -> None:
         header = self._table.horizontalHeader()
-        # 表头与单元格统一左对齐：默认居中会让被拉伸的宽列表头飘离内容
+        # 表头与单元格统一左对齐：默认居中会让被拉伸的宽列表头飘离内容。
+        # ``Stretch`` 模式会锁死拖动，所以全部用 Interactive，多余宽度再分给
+        # 标记了 stretch 的列。
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        stretch_done = False
-        for index, column in enumerate(self._columns):
-            mode = (
-                QHeaderView.ResizeMode.Stretch
-                if column.stretch
-                else QHeaderView.ResizeMode.Interactive
-            )
-            header.setSectionResizeMode(index, mode)
-            stretch_done = stretch_done or column.stretch
-        if self._columns and not stretch_done:
-            header.setStretchLastSection(True)
+        header.setStretchLastSection(False)
+        for index, _column in enumerate(self._columns):
+            header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
         # ``ResizeToContents`` 会让每次换主题都重新量一遍所有单元格：Qt 重打磨
         # 整个控件树时会把列宽重算算进去，829 个控件能拖到 1.2 秒。这里量一次
         # 就固定下来，行数据变化时再量。
         self._measure_columns()
 
     def _measure_columns(self) -> None:
-        """按当前内容量一次列宽，之后保持固定，用户仍可以拖动。"""
+        """按当前内容量一次列宽，然后把多余宽度分给 stretch 列。之后可以拖动。"""
 
         header = self._table.horizontalHeader()
-        for index, column in enumerate(self._columns):
-            if column.stretch:
-                continue
-            header.setSectionResizeMode(index, QHeaderView.ResizeMode.ResizeToContents)
-            width = header.sectionSize(index)
-            header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
-            header.resizeSection(index, width)
+        self._user_sized = False
+        self._filling = True
+        try:
+            for index, _column in enumerate(self._columns):
+                header.setSectionResizeMode(index, QHeaderView.ResizeMode.ResizeToContents)
+                width = header.sectionSize(index)
+                header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
+                header.resizeSection(index, width)
+            self._distribute_extra()
+        finally:
+            self._filling = False
+
+    def _distribute_extra(self) -> None:
+        """把视口里多出来的宽度加到 stretch 列上，不把已经量好的列挤窄。"""
+
+        header = self._table.horizontalHeader()
+        indexes = [index for index, column in enumerate(self._columns) if column.stretch]
+        if not indexes:
+            return
+        viewport = self._table.viewport().width()
+        if viewport <= 0:
+            return
+        current = [header.sectionSize(index) for index in range(len(self._columns))]
+        extra = viewport - sum(current)
+        if extra <= 1:
+            return
+        share = extra // len(indexes)
+        remainder = extra - share * len(indexes)
+        for nth, index in enumerate(indexes):
+            header.resizeSection(index, current[index] + share + (remainder if nth == 0 else 0))
 
     def _cycle_sort(self, section: int) -> None:
         if section < 0 or section >= len(self._columns):

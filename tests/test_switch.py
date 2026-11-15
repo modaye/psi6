@@ -22,6 +22,7 @@ def test_switch_toggles_without_becoming_a_window(qtbot: QtBot) -> None:
     qtbot.waitExposed(host)
     assert switch.parent() is host
     assert not switch.isChecked()
+    assert (switch.width(), switch.height()) == (42, 24)
     switch.click()
     assert switch.isChecked()
     switch.setChecked(False)

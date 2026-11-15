@@ -25,6 +25,7 @@ from psi6.ui.data_table import DataTable, TableColumn
 from psi6.ui.desktop_window import DesktopWindow
 from psi6.ui.dialogs import confirm, fail, inform, warn
 from psi6.ui.diff_view import DiffView
+from psi6.ui.drawer import Drawer
 from psi6.ui.drop_zone import DropZone
 from psi6.ui.empty_state import EmptyState
 from psi6.ui.file_input import FileInput, FolderInput, PathState
@@ -45,8 +46,10 @@ from psi6.ui.history import EditHistory
 from psi6.ui.icon import Icon, IconButton
 from psi6.ui.image_well import IconPreview, ImageWell
 from psi6.ui.kbd import KbdHint
+from psi6.ui.loading import BusyBar, Spinner
 from psi6.ui.log_console import LogConsole, LogConsoleHandler
 from psi6.ui.log_panel import LogPanel
+from psi6.ui.pagination import Pagination
 from psi6.ui.playlist import Playlist
 from psi6.ui.property_list import PropertyList
 from psi6.ui.search_field import SearchField
@@ -55,6 +58,7 @@ from psi6.ui.segmented import SegmentedControl
 from psi6.ui.setting_row import SettingRow
 from psi6.ui.settings_page import SettingsPage, pydantic_settings
 from psi6.ui.shortcuts import ShortcutBook
+from psi6.ui.skeleton import Skeleton
 from psi6.ui.sparkline import Sparkline
 from psi6.ui.status_badge import StatusBadge
 from psi6.ui.status_progress import StatusProgress
@@ -78,6 +82,7 @@ __all__ = [
     "AppShell",
     "Banner",
     "Breadcrumb",
+    "BusyBar",
     "BusyOverlay",
     "Card",
     "ChangeList",
@@ -95,6 +100,7 @@ __all__ = [
     "DebugEventFilter",
     "DesktopWindow",
     "DiffView",
+    "Drawer",
     "DropZone",
     "EditHistory",
     "EmptyState",
@@ -117,6 +123,7 @@ __all__ = [
     "MessageList",
     "NavDestination",
     "PageHeader",
+    "Pagination",
     "Panel",
     "PathState",
     "Playlist",
@@ -128,7 +135,9 @@ __all__ = [
     "SettingRow",
     "SettingsPage",
     "ShortcutBook",
+    "Skeleton",
     "Sparkline",
+    "Spinner",
     "StatCard",
     "StatusBadge",
     "StatusProgress",

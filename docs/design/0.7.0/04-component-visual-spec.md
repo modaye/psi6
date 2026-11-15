@@ -93,8 +93,8 @@
 | 组件 | 默认 | 悬停 | 选中 | 焦点 | 禁用 |
 | --- | --- | --- | --- | --- | --- |
 | 复选框 | 指示器 `color_sunken`，边 `color_control_border`，圆角 `max(2, radius-2)`，边宽始终 1px | 边 `color_primary` | 填充 `color_primary`，勾为 `color_on_primary` | 外侧环包住指示器加标签的整行。环不画成指示器的加粗边：加粗会缩小勾选图的内容盒，勾被裁掉，失焦后旧边还会留在原处 | 共享禁用 |
-| 单选 | 圆形指示器，边宽始终 1px，底为 `color_surface` | 边 `color_primary` | 外环与圆心都是 `color_primary`，中间留白。禁用时环和点都是 `color_muted` | 同复选，环在整行外侧 | 共享禁用 |
-| `Switch` | 轨 `color_border`，拇指 `color_elevated` | 轨略用 `color_hover` | 轨 `color_primary` | 外侧环 | 共享禁用 |
+| 单选 | 圆形指示器整枚用矢量绘制，底为 `color_surface`。不用样式表 `border-radius` 画圆，1px 圆边会发虚 | 环 `color_primary` | 外环与圆心都是 `color_primary`，中间留白。禁用时环和点都是 `color_muted` | 同复选，环在整行外侧 | 共享禁用 |
+| `Switch` | 轨铺满 `switch_width` × `switch_height`（现代 42×24），内缩 1px 的胶囊。关：`color_hover`；开：`color_primary`。拇指直径比轨高低 4px，`color_on_primary` | 轨色不变 | 滑块到位 | 外侧环 | 共享禁用 |
 | `SegmentedControl` | 槽 `color_sunken` | 项 `color_hover` | 项 `color_elevated` 加 1px `color_border` | 内收环在选中项内 | 整组禁用 |
 | 下拉 | 与单行输入相同 | 与输入相同 | 菜单项用 `color_selected` | 外侧环在框上；菜单打开时当前项内收环 | 共享禁用 |
 | `CheckList` / `CheckItem` | 行高 `row_height` | 行 `color_hover` | 勾选不改变行填充，只用指示器 | 内收环 | 行文字 `color_disabled` |
@@ -120,7 +120,7 @@
 | --- | --- |
 | `PageHeader` | 标题档加可选辅助说明。右侧最多两个次按钮。无底边，间距见布局 |
 | `StatCard` | 只用在启动器或看板的少数指标上。填充 `color_surface`，1px `color_border`，无阴影。文件索引和设置不用它做统计墙 |
-| `Tag` / `TagRow` / `StatusBadge` | 高 `control_height_sm`，圆角 `radius`，字 `font_size_sm`。成功、警告、错误、信息用对应颜色作字色，填充为该色与 `color_bg` 的弱混合（实现时用 `mix_hex(语义色, color_bg, 0.88)`，不新增字段）。表格状态用标签，不用灰色正文 |
+| `Tag` / `TagRow` / `StatusBadge` | 高 `control_height_sm`，字 `font_size_sm`。`Tag` 是胶囊，自己描边：矩形内收 0.5px，圆角为高度的一半，避免样式表圆边发虚。成功、警告、错误、信息用对应颜色作字色，填充为该色与 `color_bg` 的弱混合（`mix_hex(语义色, color_bg, 0.88)`，不新增字段）。表格状态用标签，不用灰色正文 |
 | `PropertyList` | 名 `color_muted`，值 `color_text`。行间 `color_border_subtle`。工作台右栏用它 |
 | `Sparkline` | 线色 `color_primary`，无坐标轴装饰。只放在已经使用 `StatCard` 的看板 |
 | `ImageWell` | 表面 `color_sunken`，边 `color_border`，空时在井内放空状态 |
@@ -135,7 +135,7 @@
 
 外框 1px `color_border`，底 `color_surface`，圆角 `radius`。表头高 `row_height`，字辅助档、`color_muted`，底边 `color_border_subtle`。单元格左右 `space_md`。
 
-行悬停 `color_hover`。行选中 `color_selected`，字仍是 `color_text`。焦点内收在选中行，不另画单元格蓝框。状态列用 `Tag`。空状态在视口中央。加载用表体上的 `BusyOverlay`，表头保留。列不够宽时在表内横向滚动。
+行悬停 `color_hover`。行选中 `color_selected`，字仍是 `color_text`。焦点内收在选中行，不另画单元格蓝框。视口底是 `color_surface`（浅色下为白），不用 `color_sunken` 把表内染成主题底色。列宽可以拖；`stretch=True` 只是把多余宽度分给这一列，不锁死拖动。状态列用 `Tag`。空状态在视口中央。加载用表体上的 `BusyOverlay`，表头保留。列不够宽时在表内横向滚动。
 
 `ColumnPicker` 是菜单，规则同命令面板的结果行。
 
@@ -152,9 +152,12 @@
 | 组件 | 规则 |
 | --- | --- |
 | `Banner` | 页面内容顶部，全宽于内容列。填充为语义色与 `color_bg` 的 `mix_hex(..., 0.90)`，边 1px 语义色，图标用语义色，文字 `color_text`。关闭是无边图标按钮。警告横幅的关闭按钮不得使用主色填充 |
-| `Toast` / `ToastHost` / `ToastCard` | 浮起表面，1px 边，圆角 `radius`，无阴影。出现在窗口下角，不推动页面布局。成功、失败用语义色图标 |
+| `Toast` / `ToastHost` / `ToastCard` | 浮起表面，1px 边，圆角 `radius`，无阴影。出现在窗口下角，不推动页面布局。信息、成功、警告、错误在左侧放对应语气的图标 |
 | `EmptyState` | 只放在宿主内。图标、标题、一句说明、至多一个主按钮 |
+| `Spinner` | 旋转圆弧，颜色 `color_primary`。只在可见时循环，一圈为 `motion_ms` 的四倍。减少动效时停住。这是加载，不是进度 |
+| `BusyBar` | 高 6px 的轨道，一段 `color_primary` 滑过。只在可见时循环，一圈为 `motion_ms` 的五倍。不知道总量时用它，不用进度条 |
 | `BusyOverlay` | 盖住声明的区域，遮罩用 `color_overlay`，指示器 `color_primary`。页头和底栏留在外面 |
+| `Drawer` | 子控件盖住宿主，不进布局。右侧面板滑入，遮罩用 `color_overlay` 按进度变浓。点遮罩或 Esc 关闭。减少动效时直接到位 |
 | `StatusProgress` | 放在窗口状态栏或任务底栏的右端。轨道 `color_sunken`，进度 `color_primary`，高 4px |
 
 `inform` / `warn` / `fail` / `confirm` 打开的是对话框或 Toast，外观遵守对应组件，不另做一套颜色。
@@ -222,13 +225,12 @@
 | `Toast` | 出现在窗口下角；悬停暂停、移开按剩余时长继续；`reduced_motion` 下无动画 |
 | `Banner` | 关闭是无边框图标按钮，不用主色填充 |
 | `EmptyState` | 只在宿主内部居中；有数据时不渲染 |
+| `Skeleton` | 底色 `color_hover`，圆角默认 `radius`，不超过短边的一半。高光带宽是控件宽度的一半，白色，两端透明、中段 alpha 150，裁在圆角里。只在可见时线性循环，一圈为 `motion_ms` 的五倍。`reduced_motion` 或隐藏时只留底色 |
 | `Stepper` | 完成态、当前态、未达态可分辨；圆点在任何密度下都是正圆 |
 | `Menu` / `ContextMenu` | 勾选与单选标记是主题图形；菜单项左侧留位，勾选出现时文字不跳 |
 | `QCalendarWidget`（`QDateEdit` 弹出面板） | 导航栏、日期格、选中态接管，不露 Fusion 默认外观 |
 | `Slider` | 已选段是主色；横竖两个方向都有；禁用态降对比 |
-
-不在本版补画的控件（`Pagination`、`Drawer`、`Skeleton`、`Spinner`）按 2.2 节留到后续版本，
-不要为了让清单整齐而临时加一个只有默认态的控件。
+| `Pagination` | 页码从 1 开始。不超过 7 页全部列出。更多页时保留首页、末页和当前页左右各一页，空出两页以上才放省略号。当前页是主按钮，其余是幽灵按钮。第一页停用上一页，最后一页停用下一页 |
 
 ## 主题预览里必须能指认的状态
 

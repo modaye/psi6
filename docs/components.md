@@ -16,7 +16,15 @@
 
 页内文字页签用 `UnderlineTabs`：底部主色条滑到当前项。可关闭的文档页签仍是 `TabView`，选中项底部也有同样的滑动条。
 
+临时详情用 `Drawer(title, host)`，它盖住宿主并从右侧滑入。`body()` 是内容布局。点遮罩或按 Esc 关闭。不要把它放进页面布局。
+
+结果有多页时用 `Pagination(total)`。页码从 1 开始，`set_current` 跳转，`page_changed` 读当前页。不超过 7 页全部列出；更多页保留首页、末页和当前页两侧，中间是省略号。第一页和最后一页会停用对应的箭头。不要只画前几页。
+
 按钮正在提交时用 `set_loading(button, True)`。左侧转圈，文字还在，颜色不变，点击被挡住。`is_loading(button)` 读取这个状态。
+
+还不知道总量时用 `Spinner` 或 `BusyBar`。已经知道完成了多少，用 `QProgressBar` 或 `StatusProgress`。盖住一块区域用 `BusyOverlay`。
+
+列表或卡片还在加载时用 `Skeleton(width, height)`。底色是悬停色，半宽的白色高光从左扫到右，裁在圆角里。圆角默认 `radius`；正方形把头像画成圆时传入边长的一半。扫光只在可见时循环，一圈是 `motion_ms` 的五倍。减少动效或离开页面时只留底色。没有数据、需要说明下一步时用 `EmptyState`，不要拿骨架代替。
 
 窗口藏起后的入口不放进这张表：系统托盘用 `app.run(window, tray=True)`，没有托盘时用 `app.run(window, float_ball=True)`。悬浮球是置顶圆标，单击显示或隐藏主窗口，拖动换位置，不放进页面布局。
 

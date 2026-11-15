@@ -4,17 +4,37 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QPen
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from psi6.theme.apply import apply_psi6_button_style
+from psi6.theme.colors import mix_hex
+from psi6.theme.paint import as_color, create_painter
+from psi6.theme.runtime import token_color, token_int
 from psi6.ui._tone import set_tone
 from psi6.ui.flow_layout import FlowLayout
-from psi6.ui.tone import Tone
+from psi6.ui.tone import Tone, normalize_tone
+
+_THEME_EVENTS = {QEvent.Type.PaletteChange, QEvent.Type.StyleChange}
+
+
+def _tone_paint(tone: str) -> tuple[str, str, str]:
+    """填充、字色、描边。描边比填充更靠近语义色，仍是和底色的混合。"""
+
+    name = normalize_tone(tone)
+    canvas = token_color("bg")
+    if name == "neutral":
+        return token_color("hover"), token_color("muted"), token_color("control_border")
+    ink = token_color("danger" if name == "error" else name)
+    return mix_hex(ink, canvas, 0.88), ink, mix_hex(ink, canvas, 0.72)
 
 
 class Tag(QPushButton):
-    """可点选的短标签。``checkable`` 时用作筛选芯片。"""
+    """可点选的短标签。``checkable`` 时用作筛选芯片。
+
+    胶囊自己画。样式表的圆角描边在 1px 上会发虚，这里把边内收半像素再描。
+    """
 
     def __init__(
         self,
@@ -26,11 +46,66 @@ class Tag(QPushButton):
     ) -> None:
         super().__init__(text, parent)
         self.setObjectName("psi6Tag")
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         apply_psi6_button_style(self)
         self.setCheckable(checkable)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         set_tone(self, tone)
+        self._sync_height()
+
+    def _sync_height(self) -> None:
+        self.setFixedHeight(max(20, token_int("control_height_sm")))
+
+    def sizeHint(self) -> QSize:
+        pad = token_int("space_md")
+        width = self.fontMetrics().horizontalAdvance(self.text()) + pad * 2
+        return QSize(max(width, self.height()), self.height())
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+    def enterEvent(self, event) -> None:
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.update()
+        super().leaveEvent(event)
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() in _THEME_EVENTS:
+            self._sync_height()
+            self.update()
+
+    def paintEvent(self, _event) -> None:
+        """抗锯齿胶囊。不走样式表描边。"""
+
+        fill, ink, edge = _tone_paint(str(self.property("tone") or "neutral"))
+        if not self.isEnabled():
+            fill, ink, edge = (
+                token_color("bg"),
+                token_color("disabled"),
+                token_color("border_subtle"),
+            )
+        elif self.isChecked():
+            fill, ink, edge = token_color("info"), token_color("on_primary"), token_color("info")
+        elif self.underMouse():
+            ink = token_color("text")
+            edge = token_color("primary")
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        radius = rect.height() / 2
+        pen = QPen(as_color(edge))
+        pen.setWidthF(1.0)
+        with create_painter(self, clear_pen=False) as painter:
+            painter.setPen(pen)
+            painter.setBrush(as_color(fill))
+            painter.drawRoundedRect(rect, radius, radius)
+            painter.setPen(as_color(ink))
+            painter.setFont(self.font())
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.text())
 
 
 class TagRow(QWidget):

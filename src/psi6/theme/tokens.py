@@ -40,7 +40,7 @@ _MODERN_METRICS: dict[str, int] = {
     "row_height": 32,
     "focus_ring_width": 2,
     "title_bar_height": 36,
-    "switch_width": 44,
+    "switch_width": 42,
     "switch_height": 24,
     "sidebar_width": 212,
     "sidebar_compact_width": 56,
@@ -61,7 +61,7 @@ _COMPACT_METRICS: dict[str, int] = {
     "row_height": 28,
     "focus_ring_width": 2,
     "title_bar_height": 32,
-    "switch_width": 38,
+    "switch_width": 36,
     "switch_height": 20,
     "sidebar_width": 188,
     "sidebar_compact_width": 52,
@@ -134,7 +134,7 @@ class Tokens:
     control_height_sm: int = 28
     row_height: int = 32
     title_bar_height: int = 36
-    switch_width: int = 44
+    switch_width: int = 42
     switch_height: int = 24
     font_family: str = '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif'
     font_mono: str = '"Cascadia Mono", "Consolas", monospace'

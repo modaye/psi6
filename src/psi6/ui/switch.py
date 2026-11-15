@@ -48,7 +48,7 @@ class Switch(QAbstractButton):
         self.update()
 
     def _sync_metrics(self) -> None:
-        width = max(28, token_int("switch_width", 44))
+        width = max(28, token_int("switch_width", 42))
         height = max(16, token_int("switch_height", 24))
         self.setFixedSize(width, height)
 
@@ -78,10 +78,7 @@ class Switch(QAbstractButton):
             off = token_color("hover" if enabled else "disabled")
             on = token_color("primary" if enabled else "disabled")
             painter.setBrush(mix_color(off, on, amount))
-            margin = max(1.0, self.height() * 0.08)
-            groove = QRectF(
-                margin, self.height() * 0.14, self.width() - margin * 2, self.height() * 0.72
-            )
+            groove = QRectF(self.rect()).adjusted(1, 1, -1, -1)
             radius = groove.height() / 2
             painter.drawRoundedRect(groove, radius, radius)
             if self.hasFocus() and enabled:
