@@ -25,7 +25,7 @@ _TOAST_ICONS = {
 try:  # 该事件在较新的 Qt 绑定里才有；读屏桥缺失时本就是 no-op
     from PySide6.QtGui import QAccessibleAnnouncementEvent
 except ImportError:  # pragma: no cover - 取决于绑定版本
-    QAccessibleAnnouncementEvent = None  # type: ignore[assignment]
+    QAccessibleAnnouncementEvent = None  # type: ignore[misc, assignment]
 
 _MAX_TOASTS = 4
 _TOAST_WIDTH = 320

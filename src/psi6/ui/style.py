@@ -16,6 +16,8 @@ from psi6.theme.runtime import token_color
 _PROP = "psi6Style"
 _MARK = "psi6StylePaint"
 _FILTER = "psi6StyleFilter"
+# 样式袋只存字号、字重、颜色和间距。颜色是字符串，尺寸是整数，缺字段是 None。
+_StyleValue = int | str | None
 # setStyleSheet 会同步再发 PaletteChange。正在写的控件记在这里，避免刷新器把自己叫进去。
 _APPLYING: set[int] = set()
 
@@ -105,14 +107,18 @@ def resolve_color(value: str) -> str:
     return resolved
 
 
-def _stored(widget: QWidget) -> dict[str, object]:
+def _stored(widget: QWidget) -> dict[str, _StyleValue]:
     raw = widget.property(_PROP)
-    if isinstance(raw, dict):
-        return dict(raw)
-    return {}
+    if not isinstance(raw, dict):
+        return {}
+    stored: dict[str, _StyleValue] = {}
+    for key, value in raw.items():
+        if isinstance(key, str) and (value is None or isinstance(value, int | str)):
+            stored[key] = value
+    return stored
 
 
-def _validate(stored: dict[str, object]) -> None:
+def _validate(stored: dict[str, _StyleValue]) -> None:
     size = stored.get("size")
     weight = stored.get("weight")
     if size is not None and int(size) <= 0:
@@ -128,7 +134,7 @@ def _ensure_filter(widget: QWidget) -> None:
     widget.setProperty(_FILTER, True)
 
 
-def _tracks_theme(stored: dict[str, object]) -> bool:
+def _tracks_theme(stored: dict[str, _StyleValue]) -> bool:
     """字面色不随主题变。只有 token 名才需要在调色板变化后重算。"""
 
     for key in ("color", "fill"):
@@ -143,7 +149,7 @@ def _literal_color(value: str) -> bool:
     return text.startswith("#") or text.startswith("rgb")
 
 
-def _sheet(stored: dict[str, object]) -> str:
+def _sheet(stored: dict[str, _StyleValue]) -> str:
     selector = f'QWidget[{_MARK}="1"]'
     rules: list[str] = []
     size = stored.get("size")
@@ -168,7 +174,7 @@ def _sheet(stored: dict[str, object]) -> str:
     return f"{selector} {{ {body}; }}"
 
 
-def _paint(widget: QWidget, stored: dict[str, object]) -> None:
+def _paint(widget: QWidget, stored: dict[str, _StyleValue]) -> None:
     key = id(widget)
     if key in _APPLYING:
         return

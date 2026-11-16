@@ -330,13 +330,12 @@ def build_chat(app: App) -> DesktopWindow:
     def on_sent(text: str) -> None:
         messages.add_message(text, role="user")
         reply = messages.add_message("…", role="assistant", streaming=True)
-        QTimer.singleShot(
-            700,
-            lambda: (
-                reply.set_text(f"收到：{text}。psi6 的组件都能直接用，在画廊里挑一个看看？"),
-                reply.set_streaming(False),
-            ),
-        )
+
+        def deliver() -> None:
+            reply.set_text(f"收到：{text}。psi6 的组件都能直接用，在画廊里挑一个看看？")
+            reply.set_streaming(False)
+
+        QTimer.singleShot(700, deliver)
 
     composer.sent.connect(on_sent)
 

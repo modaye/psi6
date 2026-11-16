@@ -189,8 +189,11 @@ def test_check_and_radio_indicators_are_fully_drawn() -> None:
     radio = css.split("QRadioButton::indicator:checked {", 1)[1].split("}", 1)[0]
     assert "border: none" in radio
     assert "image: url(psi6icon:" in radio
-    assert light.color_primary.lstrip("#") in radio
-    assert light.color_on_primary.lstrip("#") not in radio
+    # 选中单选是表面底加主色环和点。底色可能与 color_on_primary 相同，不能靠「不含 on_primary」判断。
+    assert (
+        f"radio_on_{light.color_surface.lstrip('#')}_{light.color_primary.lstrip('#')}_"
+        f"{light.color_primary.lstrip('#')}"
+    ) in radio
     muted = css.split("QRadioButton::indicator:checked:disabled {", 1)[1].split("}", 1)[0]
     assert light.color_muted.lstrip("#") in muted
 
@@ -203,8 +206,8 @@ def test_control_border_follows_border_unless_overridden() -> None:
 
     light = Tokens.light().resolve_states()
     dark = Tokens.dark().resolve_states()
-    assert light.color_control_border == light.color_border == "#e4e6e5"
-    assert dark.color_control_border == dark.color_border == "#333533"
+    assert light.color_control_border == light.color_border == "#d8d3cb"
+    assert dark.color_control_border == dark.color_border == "#3f3832"
     assert light.resolve_states() == light
     # 只改了结构边的内置主题，控件边跟着走，不必在每个主题里再写一份。
     assert Obsidian().tokens().color_control_border == Obsidian.color_border

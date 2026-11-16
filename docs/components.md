@@ -1,6 +1,6 @@
 # 试点组件
 
-只记录 Modern Desktop Workbench 这一阶段要用的控件。色板尚未冻结。
+只记录 Modern Desktop Workbench 这一阶段要用的控件。默认色板是石墨铜。
 
 | 控件 | 导入 | 何时用 | 不要用它代替 |
 | --- | --- | --- | --- |

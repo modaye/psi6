@@ -55,9 +55,7 @@ def test_toast_puts_an_icon_on_the_left(qtbot: QtBot) -> None:
 def test_table_interior_is_surface_and_columns_can_resize(qtbot: QtBot, tmp_path: Path) -> None:
     app = App("psi6-table-resize", theme="graphite", config_root=tmp_path)
     del app
-    table = DataTable(
-        (TableColumn("name", "任务", stretch=True), TableColumn("owner", "负责人"))
-    )
+    table = DataTable((TableColumn("name", "任务", stretch=True), TableColumn("owner", "负责人")))
     table.set_rows(({"name": "设计令牌", "owner": "林悦"},))
     qtbot.addWidget(table)
     table.resize(640, 240)

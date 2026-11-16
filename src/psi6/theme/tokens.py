@@ -75,7 +75,8 @@ _COMPACT_METRICS: dict[str, int] = {
 class Tokens:
     """桌面工具视觉变量。
 
-    浅色背景是纯白。面板、悬停和侧栏用中性灰，不带绿。蕨绿只留给主操作、焦点和选中浅底。
+    默认浅色是石墨铜：画布暖白，面板纯白，主色、焦点和用户气泡是铜。
+    成功是绿，警告是琥珀，危险是红，信息是青。深色是同一套角色的暖炭和浅铜。
     默认浅色和深色不含蓝、紫。卡片仍用 ``color_surface``，避免和画布贴成一片。
     用户自定义：子类化 ``psi6.theme.Theme``，或 ``overlay`` 覆盖字段。不要手写整份 QSS，
     也不要再用 JSON / TOML / YAML 描述主题。
@@ -91,35 +92,35 @@ class Tokens:
     图标：主题旁 ``icons/search.svg`` 与 ``Icon("search")`` 同名即覆盖。
     """
 
-    color_bg: str = "#ffffff"
+    color_bg: str = "#faf9f7"
     color_surface: str = "#ffffff"
     color_elevated: str = "#ffffff"
-    color_sunken: str = "#f3f4f4"
-    color_hover: str = "#f0f1f1"
+    color_sunken: str = "#f4f2ef"
+    color_hover: str = "#ece9e4"
     color_pressed: str = ""
     color_selected: str = ""
-    color_text: str = "#1c1f1e"
-    color_muted: str = "#5f6863"
-    color_border: str = "#e4e6e5"
-    color_border_subtle: str = "#eeefef"
+    color_text: str = "#2a2722"
+    color_muted: str = "#5b554c"
+    color_border: str = "#d8d3cb"
+    color_border_subtle: str = "#e7e3dd"
     color_control_border: str = ""
-    color_disabled: str = "#aeb4b0"
-    color_primary: str = "#1f7a4d"
-    color_on_primary: str = "#f7fcf9"
+    color_disabled: str = "#a8a199"
+    color_primary: str = "#955836"
+    color_on_primary: str = "#ffffff"
     color_primary_hover: str = ""
     color_primary_pressed: str = ""
-    color_danger: str = "#c93b32"
+    color_danger: str = "#b23b2e"
     color_danger_hover: str = ""
     color_danger_pressed: str = ""
-    color_success: str = "#5c7010"
-    color_warning: str = "#9a6408"
-    color_info: str = "#6a6156"
-    color_focus: str = "#0e5c38"
-    color_overlay: str = "rgba(244, 245, 245, 210)"
-    color_sidebar: str = "#f7f7f7"
-    color_sidebar_text: str = "#3c4440"
-    color_user_bubble: str = "#1f7a4d"
-    color_user_on_bubble: str = "#f7fcf9"
+    color_success: str = "#3f7d53"
+    color_warning: str = "#8d6214"
+    color_info: str = "#37666e"
+    color_focus: str = "#7c482c"
+    color_overlay: str = "rgba(27, 25, 22, 150)"
+    color_sidebar: str = "#f4f2ef"
+    color_sidebar_text: str = "#5b554c"
+    color_user_bubble: str = "#955836"
+    color_user_on_bubble: str = "#ffffff"
     space_sm: int = 8
     space_md: int = 12
     space_lg: int = 16
@@ -157,31 +158,31 @@ class Tokens:
 
     @classmethod
     def dark(cls) -> Tokens:
-        """深色工作台：中性炭黑，浅蕨绿只做强调。"""
+        """深色工作台：暖炭分层，浅铜只做强调。成功仍是绿。"""
 
         return cls(
-            color_bg="#161716",
-            color_surface="#1c1d1c",
-            color_elevated="#232423",
-            color_sunken="#101110",
-            color_hover="#2a2b2a",
-            color_text="#f2f3f2",
-            color_muted="#a0a6a2",
-            color_border="#333533",
-            color_border_subtle="#262726",
-            color_disabled="#6e746f",
-            color_primary="#86d0a4",
-            color_on_primary="#102016",
-            color_danger="#e99088",
-            color_success="#d2d56a",
+            color_bg="#1a1816",
+            color_surface="#221f1c",
+            color_elevated="#2b2723",
+            color_sunken="#12100e",
+            color_hover="#342f2a",
+            color_text="#f4f0ea",
+            color_muted="#b7afa4",
+            color_border="#3f3832",
+            color_border_subtle="#2e2a26",
+            color_disabled="#7a736a",
+            color_primary="#e2b08a",
+            color_on_primary="#2a1810",
+            color_danger="#e08b82",
+            color_success="#8fcb9a",
             color_warning="#e4b45e",
-            color_info="#c9c1b6",
-            color_focus="#d4f3e2",
-            color_overlay="rgba(14, 15, 14, 210)",
-            color_sidebar="#121312",
-            color_sidebar_text="#c6ccc8",
-            color_user_bubble="#173828",
-            color_user_on_bubble="#e7f6ee",
+            color_info="#8fb8be",
+            color_focus="#f3d2bc",
+            color_overlay="rgba(18, 16, 14, 210)",
+            color_sidebar="#141210",
+            color_sidebar_text="#d4cdc3",
+            color_user_bubble="#5c3a28",
+            color_user_on_bubble="#f6e6d8",
         )
 
     def overlay(self, data: Mapping[str, Any]) -> Tokens:

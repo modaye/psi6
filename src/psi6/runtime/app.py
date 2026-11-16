@@ -92,7 +92,8 @@ class App:
     手动切换与窗口尺寸触发的自动翻转。
 
     ``focus_ring`` 默认 ``False``：不画焦点环，只抑制 Qt 的虚线框。
-    需要对照键盘焦点时传 ``True`` 或调用 :meth:`set_focus_ring`。有的控件上环会显得脏。
+    打开后环只跟键盘焦点（Tab、Backtab、快捷键、程序 ``setFocus``），鼠标点击不画。
+    需要时传 ``True`` 或调用 :meth:`set_focus_ring`。
     """
 
     def __init__(
@@ -232,15 +233,15 @@ class App:
 
     @property
     def focus_ring(self) -> bool:
-        """当前是否绘制键盘焦点环，默认 ``False``。"""
+        """当前是否绘制键盘焦点环，默认 ``False``。打开后只有键盘焦点画环。"""
 
         return self._focus_ring
 
     def set_focus_ring(self, enabled: bool) -> None:
-        """运行时开关焦点环：``True`` 恢复品牌色焦点环，``False`` 只抑制原生焦点框。
+        """运行时开关焦点环，并立刻重套主题。
 
-        切换会立即重套当前主题，因此全局样式表和逐控件样式化的按钮会同步更新。
-        需要键盘可见性的场景（纯键盘操作、无障碍需求）显式打开即可。
+        ``True`` 时全局样式和主题按钮在键盘焦点下画品牌色环，鼠标点击不画。
+        ``False`` 只抑制原生焦点框。换主题、跟随系统浅深色、切换密度都保留这个开关。
         """
 
         self._focus_ring = bool(enabled)

@@ -1,6 +1,6 @@
 # 0.7.0 桌面设计规范
 
-阶段二之后，默认浅色和深色已改为石色与蕨绿。色值见 [03-design-tokens.md](03-design-tokens.md)。不新增公开 token 字段。
+默认浅色和深色是石墨铜。色值见 [03-design-tokens.md](03-design-tokens.md)。不新增公开 token 字段。
 
 另一位实现者从这里读起，然后按编号往下。冲突时以 [08-design-decisions.md](08-design-decisions.md) 为准。
 

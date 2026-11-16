@@ -246,7 +246,7 @@ class _ContextMenuHandler(QObject):
         self,
         source: QWidget,
         builder: Callable[[MenuTarget], Sequence[MenuAction] | None],
-        container: QWidget,
+        container: _MenuHost,
         *,
         use_column_target: bool = False,
     ) -> None:

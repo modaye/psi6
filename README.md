@@ -2,7 +2,7 @@
 
 给编码 Agent 用的 PySide6 桌面框架：运行时、后台任务、Python 主题与窗口外壳。新窗口用 `Workspace` 放工具栏、面包屑和左右栏（栏可显隐，布局可持久化）；多份文档用 `TabView` 的标签页；结果用 `DataTable` 排序筛选；参数用 `pydantic_form`，校验错误留在字段下；侧栏换页用 `AppShell`。
 
-> **状态**：0.6.0。根包公开入口（`psi6.api.STABLE`）在 0.x 内职责不变；控件层（`psi6.ui`）可用但不逐个承诺稳定级别。色板与部分 token **尚未冻结**，主题相关字段可能随版本微调。详见「稳定边界」。
+> **状态**：0.6.0。根包公开入口（`psi6.api.STABLE`）在 0.x 内职责不变；控件层（`psi6.ui`）可用但不逐个承诺稳定级别。默认色板已定为石墨铜，字段名稳定，可选皮肤仍用同一组字段。详见「稳定边界」。
 
 ## 要求与支持平台
 
@@ -45,13 +45,31 @@ raise SystemExit(app.run(window))
 
 `python -m psi6 catalog --json` 输出全部公开控件、构造参数和适用场景，Agent 不必读源码就能选控件。`python -m psi6 check <目录>` 检查业务代码有没有直接创建 `QApplication`、手写 `QThread`、调用 `QFileDialog` 或写内联 QSS。`python -m psi6 theme --check` 检查内置主题的对比度，`--json` 输出 token 和诊断。
 
-浅色和深色是同一套语言。`style` 只选 `modern` 或 `compact`。具体色值还没冻结。
+浅色和深色是同一套石墨铜。画布暖白或暖炭，主色是铜，成功是绿。`style` 只选 `modern` 或 `compact`。
+
+## 外观
+
+`python -m psi6 kit` 打开样例。浅色画布是暖白，铜只用在主操作、焦点和选中上。深色是同一套角色。
+
+![浅色概览](docs/images/showroom-light.png)
+
+![深色概览](docs/images/showroom-dark.png)
+
+按钮、输入、反馈和抽屉：
+
+![按钮](docs/images/buttons.png)
+
+![输入](docs/images/inputs.png)
+
+![反馈](docs/images/feedback.png)
+
+![抽屉](docs/images/drawer.png)
 
 ## 稳定边界（0.6.0）
 
 - 根包只导出 `psi6.api.STABLE` 名单：`App`、`TaskRunner`、`TaskHandle`、`TaskStatus`、`JobOutcome`、`Theme`、`Tokens`、`contrast_notes`、`DesktopWindow`、`TitleBar`、`TrayIcon`。0.x 内职责不变，新增参数带默认值。其它控件从 `psi6.ui` 导入。
 - 以 `_` 开头的模块是内部实现，不要直接依赖。
-- 主题 `Tokens` 的字段名与 `Theme` 子类接口是稳定契约，但具体色值在 0.6 阶段仍可能调整（色板未冻结）。
+- 主题 `Tokens` 的字段名与 `Theme` 子类接口是稳定契约。0.7 默认色板定为石墨铜；可选皮肤仍用同一组字段覆盖主色。
 - 破坏性变更写入 `MIGRATION.md` 并升一个次版本。
 
 ## 一页窗口
@@ -212,7 +230,7 @@ app.density_changed.connect(on_density_changed)
 
 ## 键盘焦点环
 
-焦点环默认**关闭**。有的控件上环很难看。需要对照键盘焦点时再打开。打开之后，主按钮和危险按钮预留一圈透明边，并把 2px 父级表面留在外边距里，聚焦只改边的颜色，控件外框尺寸不变。
+焦点环默认**关闭**。打开之后只跟键盘焦点：Tab、Shift+Tab、快捷键和程序调用的 `setFocus()` 会画出环，鼠标点击不会。主按钮和危险按钮预留一圈透明边，并把 2px 父级表面留在外边距里，聚焦只改边的颜色，控件外框尺寸不变。状态预览用 `psi6State="focus"`，不依赖键盘。
 
 ```python
 App("demo", theme="light", focus_ring=True)
@@ -225,7 +243,7 @@ app.set_focus_ring(True)     # 运行时开关，立即重套主题
 
 Qt 样式表没有 `outline`，也画不出填充和环之间的缝。父级表面缝因此在环的外侧。错误字段聚焦时保留红色控件边，错误句子仍在字段下。
 
-样例 `python -m psi6 kit` 默认为石墨铜。带状态矩阵的组件目录是 `python -m psi6 kit --workbench`，主题页可以现场关闭或打开焦点环。
+样例 `python -m psi6 kit` 使用默认浅色，也就是石墨铜。带状态矩阵的组件目录是 `python -m psi6 kit --workbench`，主题页可以现场关闭或打开焦点环。
 
 ## 多视图文档与面板布局
 

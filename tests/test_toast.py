@@ -136,9 +136,7 @@ def test_host_sits_in_bottom_right_corner(host: ToastHost, qtbot: object) -> Non
     assert host.geometry().bottom() <= window.height()
 
 
-def test_hover_pauses_timeout_and_resumes_remaining(
-    host: ToastHost, qtbot: object
-) -> None:
+def test_hover_pauses_timeout_and_resumes_remaining(host: ToastHost, qtbot: object) -> None:
     """悬停暂停计时；移开后按剩余时长继续，而不是重新计满。"""
 
     card = host.push("这条比较长，需要时间读完", timeout_ms=4000)

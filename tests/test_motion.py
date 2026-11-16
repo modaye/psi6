@@ -113,6 +113,60 @@ def test_animate_value_with_reduced_motion_emits_once(app: App) -> None:
     assert finished == [True]
 
 
+def test_stop_cancels_a_delayed_start(app: App, qtbot: QtBot) -> None:
+    """还没开始的延迟被停掉后，到点不再启动，也不调用结束回调。"""
+
+    probe = _Probe()
+    finished: list[bool] = []
+    motion.animate(
+        probe,
+        "value",
+        0.0,
+        1.0,
+        delay_ms=60,
+        duration=200,
+        on_finish=lambda: finished.append(True),
+    )
+    assert probe._value == 0.0
+    motion.stop(probe, "value")
+    qtbot.wait(100)
+    assert probe._value == 0.0
+    assert finished == []
+    assert all(item.targetObject() is not probe for item in motion._RUNNING)
+
+
+def test_stop_cancels_value_animation(app: App, qtbot: QtBot) -> None:
+    seen: list[float] = []
+    owner = QObject()
+    motion.animate_value(owner, 0.0, 10.0, on_value=seen.append, duration=400)
+    qtbot.waitUntil(lambda: len(seen) > 1)
+    motion.stop(owner)
+    count = len(seen)
+    qtbot.wait(80)
+    assert len(seen) == count
+    assert motion._RUNNING_VALUE == []
+
+
+def test_second_value_animation_replaces_the_first(app: App, qtbot: QtBot) -> None:
+    owner = QObject()
+    first: list[float] = []
+    second: list[float] = []
+    motion.animate_value(owner, 0.0, 10.0, on_value=first.append, duration=400)
+    motion.animate_value(owner, 0.0, 1.0, on_value=second.append, duration=80)
+    qtbot.waitUntil(lambda: bool(second) and abs(second[-1] - 1.0) < 0.001)
+    qtbot.wait(40)
+    assert not first or abs(first[-1] - 10.0) > 0.5
+    assert len(motion._RUNNING_VALUE) == 0
+
+
+def test_destroyed_target_drops_the_pending_animation(app: App, qtbot: QtBot) -> None:
+    probe = _Probe()
+    motion.animate(probe, "value", 0.0, 1.0, delay_ms=500, duration=300)
+    assert any(item.targetObject() is probe for item in motion._RUNNING)
+    probe.deleteLater()
+    qtbot.waitUntil(lambda: all(item.targetObject() is not probe for item in motion._RUNNING))
+
+
 def test_easing_falls_back_for_unknown_name(app: App) -> None:
     from PySide6.QtCore import QEasingCurve
 

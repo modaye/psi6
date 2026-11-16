@@ -24,6 +24,8 @@ def test_graphite_clears_contrast_notes() -> None:
     notes = contrast_notes(Graphite().tokens())
     assert notes == []
     assert Graphite.name == "graphite"
+    assert Graphite().tokens().color_primary == Tokens.light().color_primary
+    assert Graphite().tokens().color_bg == Tokens.light().color_bg
 
 
 def test_card_is_flat_unless_asked_to_rise(qtbot: QtBot) -> None:
@@ -67,6 +69,20 @@ def test_loading_blocks_clicks_and_keeps_the_fill(qtbot: QtBot) -> None:
     assert is_loading(button) is False
     qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
     assert seen == [1]
+
+
+def test_loading_does_not_enable_a_disabled_button(qtbot: QtBot) -> None:
+    """加载只挡住点击，不把原来禁用的按钮重新打开。"""
+
+    button = primary_button("保存")
+    button.setEnabled(False)
+    qtbot.addWidget(button)
+    set_loading(button, True)
+    assert is_loading(button)
+    assert button.isEnabled() is False
+    set_loading(button, False)
+    assert is_loading(button) is False
+    assert button.isEnabled() is False
 
 
 def test_underline_tabs_follow_the_selection(qtbot: QtBot) -> None:

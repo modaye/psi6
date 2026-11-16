@@ -26,7 +26,7 @@ from psi6.examples.file_index import FILE_INDEX_COLUMNS
 from psi6.jobs.file_index import FileIndexParams, run_file_index
 from psi6.runtime.logs import LogLevel, LogRecord
 from psi6.theme.apply import apply_psi6_button_style
-from psi6.theme.builtin import Compact, CompactDark, Graphite, ModernDark
+from psi6.theme.builtin import Compact, CompactDark, ModernDark
 from psi6.theme.theme import Theme
 from psi6.ui.action_bar import ActionBar
 from psi6.ui.app_shell import AppShell, NavDestination
@@ -722,7 +722,6 @@ class KitWindow(DesktopWindow):
             ("现代深色", ModernDark),
             ("紧凑浅色", Compact),
             ("紧凑深色", CompactDark),
-            ("石墨铜", Graphite),
         )
         body = QWidget()
         column = QVBoxLayout(body)

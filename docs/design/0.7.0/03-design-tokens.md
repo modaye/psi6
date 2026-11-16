@@ -1,8 +1,8 @@
 # 03 设计 token
 
-状态：默认浅色和深色以纯白或炭黑为底，中性灰做层次，蕨绿只做强调。不新增公开字段，不改 `Tokens` 的名字。可选主题（黑曜石、松绿、黄铜、极简）保持各自的主色。
+状态：默认浅色和深色是石墨铜。暖白或暖炭做层次，铜只做强调。不新增公开字段，不改 `Tokens` 的名字。可选主题（黑曜石、松绿、黄铜、极简）保持各自的主色。
 
-映射原则：浅色画布是纯白。侧栏、悬停、输入槽用中性灰，不把绿色铺进面板。主操作、焦点、链接和用户气泡用蕨绿。成功用橄榄，信息用暖褐，警告用琥珀，危险用红。紧凑不改变任何颜色。
+映射原则：浅色画布是暖白 `#faf9f7`，面板是纯白。侧栏、悬停、输入槽用暖灰，不把铜或绿铺进面板。主操作、焦点、链接和用户气泡用铜。成功用绿，信息用青，警告用琥珀，危险用红。紧凑不改变任何颜色。
 
 推导保持 `Tokens.resolve_states`：空的按下、选中、主色悬停、危险悬停、控件边，按现有公式补齐。自定义主题写了值就用写的值。
 
@@ -12,50 +12,54 @@
 
 | 语义 | 字段 | 浅色现值 | 深色现值 | 用途 |
 | --- | --- | --- | --- | --- |
-| Window | `color_bg` | `#ffffff` | `#161716` | 页面画布 |
-| Surface | `color_surface` | `#ffffff` | `#1c1d1c` | 面板、表格底 |
-| Surface Elevated | `color_elevated` | `#ffffff` | `#232423` | 对话框、次按钮、菜单 |
-| Surface Sunken | `color_sunken` | `#f3f4f4` | `#101110` | 输入、日志、对话记录 |
-| Surface Selected | `color_selected` | 推导 `#dfece6` | 推导 `#253029` | 选中行和选中导航的填充 |
-| Border | `color_border_subtle` | `#eeefef` | `#262726` | 分隔线 |
-| Border | `color_border` | `#e4e6e5` | `#333533` | 面板和表格的边 |
+| Window | `color_bg` | `#faf9f7` | `#1a1816` | 页面画布 |
+| Surface | `color_surface` | `#ffffff` | `#221f1c` | 面板、表格底 |
+| Surface Elevated | `color_elevated` | `#ffffff` | `#2b2723` | 对话框、次按钮、菜单 |
+| Surface Sunken | `color_sunken` | `#f4f2ef` | `#12100e` | 输入、日志、对话记录 |
+| Surface Selected | `color_selected` | 推导 `#ebe2db` | 推导 `#362d26` | 选中行和选中导航的填充 |
+| Border | `color_border_subtle` | `#e7e3dd` | `#2e2a26` | 分隔线 |
+| Border | `color_border` | `#d8d3cb` | `#3f3832` | 面板和表格的边 |
 | Border Strong | `color_control_border` | 空，等于 `color_border` | 同左 | 可交互控件的边 |
-| Text Primary | `color_text` | `#1c1f1e` | `#f2f3f2` | 标题、正文、次按钮文字 |
-| Text Secondary | `color_muted` | `#5f6863` | `#a0a6a2` | 说明、表头、未强调的计数 |
-| Text Muted | `color_disabled` | `#aeb4b0` | `#6e746f` | 只用于禁用控件的文字 |
-| Accent | `color_primary` | `#1f7a4d` | `#86d0a4` | 主按钮、选中标记、链接 |
-| Accent 上的字 | `color_on_primary` | `#f7fcf9` | `#102016` | 主按钮和危险按钮的字 |
-| Focus | `color_focus` | `#0e5c38` | `#d4f3e2` | 外侧焦点环 |
-| Success | `color_success` | `#5c7010` | `#d2d56a` | 成功标签、成功日志 |
-| Warning | `color_warning` | `#9a6408` | `#e4b45e` | 警告标签、警告横幅 |
-| Error | `color_danger` | `#c93b32` | `#e99088` | 错误边、错误句、危险按钮 |
-| Info | `color_info` | `#6a6156` | `#c9c1b6` | 信息标签 |
-| Hover | `color_hover` | `#f0f1f1` | `#2a2b2a` | 次按钮和行的悬停填充 |
-| Pressed | `color_pressed` | 推导 `#d6d7d7` | 推导 `#424342` | 按下填充 |
-| Sidebar | `color_sidebar` | `#f7f7f7` | `#121312` | 侧栏底 |
-| Sidebar text | `color_sidebar_text` | `#3c4440` | `#c6ccc8` | 未选中导航 |
-| Overlay | `color_overlay` | `rgba(244,245,245,210)` | `rgba(14,15,14,210)` | 模态遮罩 |
-| 用户消息 | `color_user_bubble` / `color_user_on_bubble` | `#1f7a4d` / `#f7fcf9` | `#173828` / `#e7f6ee` | 对话里用户的气泡 |
+| Text Primary | `color_text` | `#2a2722` | `#f4f0ea` | 标题、正文、次按钮文字 |
+| Text Secondary | `color_muted` | `#5b554c` | `#b7afa4` | 说明、表头、未强调的计数 |
+| Text Muted | `color_disabled` | `#a8a199` | `#7a736a` | 只用于禁用控件的文字 |
+| Accent | `color_primary` | `#955836` | `#e2b08a` | 主按钮、选中标记、链接 |
+| Accent 上的字 | `color_on_primary` | `#ffffff` | `#2a1810` | 主按钮、危险、成功、警告、信息按钮的字 |
+| Focus | `color_focus` | `#7c482c` | `#f3d2bc` | 外侧焦点环 |
+| Success | `color_success` | `#3f7d53` | `#8fcb9a` | 成功标签、成功日志 |
+| Warning | `color_warning` | `#8d6214` | `#e4b45e` | 警告标签、警告横幅 |
+| Error | `color_danger` | `#b23b2e` | `#e08b82` | 错误边、错误句、危险按钮 |
+| Info | `color_info` | `#37666e` | `#8fb8be` | 信息标签 |
+| Hover | `color_hover` | `#ece9e4` | `#342f2a` | 次按钮和行的悬停填充 |
+| Pressed | `color_pressed` | 推导 `#d4d1cc` | 推导 `#4b4641` | 按下填充 |
+| Sidebar | `color_sidebar` | `#f4f2ef` | `#141210` | 侧栏底 |
+| Sidebar text | `color_sidebar_text` | `#5b554c` | `#d4cdc3` | 未选中导航 |
+| Overlay | `color_overlay` | `rgba(27, 25, 22, 150)` | `rgba(18, 16, 14, 210)` | 模态遮罩 |
+| 用户消息 | `color_user_bubble` / `color_user_on_bubble` | `#955836` / `#ffffff` | `#5c3a28` / `#f6e6d8` | 对话里用户的气泡 |
 
-不拆「Text Secondary」和「Text Muted」成两个新的正文灰。次要说明用 `color_muted`（浅色对白底 5.76，深色对窗口底 7.25，都高于 4.5）。`color_disabled` 只出现在禁用控件上（浅色对白底 2.11）。次按钮的字用 `color_text`，因此不会和禁用共用这个灰。
+不拆「Text Secondary」和「Text Muted」成两个新的正文灰。次要说明用 `color_muted`（浅色对画布 7.01，深色对窗口底 8.16，都高于 4.5）。`color_disabled` 只出现在禁用控件上（浅色对画布 2.43）。次按钮的字用 `color_text`，因此不会和禁用共用这个灰。
 
-选中填充对侧栏底的对比度只有约 1.1。它负责色相差别，不负责单独表达选中。选中导航还要有 2px `color_primary` 竖条和图标变色。见 [01](01-visual-language.md)。
+选中填充对侧栏底的对比度，浅色约 1.14，深色约 1.39。它负责色相差别，不负责单独表达选中。选中导航还要有 2px `color_primary` 竖条和图标变色。见 [01](01-visual-language.md)。
 
 ### 已经量过、决定维持的对比
 
-用 `psi6.theme.colors.contrast_ratio` 对现值计算。文字阈值 4.5，焦点作为非文字阈值 3.0，与 `contrast_notes` 一致。
+用 `psi6.theme.colors.contrast_ratio` 对现值计算。文字阈值 4.5，焦点作为非文字阈值 3.0，与 `contrast_notes` 一致。`color_on_primary` 同时压在主色、危险、成功、警告和信息上，五对都要过 4.5。
 
 | 一对 | 浅色 | 深色 | 决定 |
 | --- | --- | --- | --- |
-| 正文 / 窗口 | 16.61 | 16.16 | 维持这套中性字色 |
-| 辅助 / 窗口 | 5.76 | 7.25 | 维持。说明文字用这一对 |
-| 主按钮字 / 主色 | 5.13 | 9.33 | 维持。浅色白字压在蕨绿上，深色深字压在浅蕨绿上 |
-| 主按钮字 / 危险色 | 4.87 | 7.10 | 维持。危险按钮继续用 `color_on_primary` |
-| 侧栏字 / 侧栏底 | 9.37 | 11.42 | 维持 |
-| 焦点色 / 窗口底 | 8.06 | 15.17 | 维持，并且环必须画在窗口或面板底上 |
-| 焦点色 / 主色填充 | 1.52 | 1.53 | 同色相，禁止把环画成主按钮的边 |
-| 错误色 / 窗口底 | 5.05 | 7.54 | 维持 |
-| 禁用字 / 窗口底 | 2.11 | 3.76 | 维持，且只用于禁用 |
+| 正文 / 窗口 | 14.14 | 15.60 | 维持这套字色 |
+| 辅助 / 窗口 | 7.01 | 8.16 | 维持。说明文字用这一对 |
+| 主按钮字 / 主色 | 5.63 | 8.74 | 维持。浅色白字压在铜上，深色深褐字压在浅铜上 |
+| 主按钮字 / 危险色 | 5.90 | 6.62 | 维持。危险按钮继续用 `color_on_primary` |
+| 主按钮字 / 成功色 | 4.92 | 9.04 | 维持。成功填充与品牌铜分开 |
+| 主按钮字 / 警告色 | 5.40 | 8.89 | 维持 |
+| 主按钮字 / 信息色 | 6.39 | 7.90 | 维持 |
+| 侧栏字 / 侧栏底 | 6.60 | 11.85 | 维持 |
+| 用户气泡字 / 气泡 | 5.63 | 8.24 | 维持。气泡用铜，不用成功绿 |
+| 焦点色 / 窗口底 | 7.08 | 12.44 | 维持，并且环必须画在窗口或面板底上 |
+| 焦点色 / 主色填充 | 1.32 | 1.36 | 同色相，环画在父级表面上 |
+| 错误色 / 窗口底 | 5.61 | 6.90 | 维持 |
+| 禁用字 / 窗口底 | 2.43 | 3.78 | 维持，且只用于禁用 |
 
 `contrast_notes` 今天还没检查「错误字 / 窗口」和「焦点色 / 主色」。实现阶段可以把这两对加进诊断。加诊断不是新的颜色字段。
 

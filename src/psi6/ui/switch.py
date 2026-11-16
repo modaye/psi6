@@ -6,6 +6,7 @@ from PySide6.QtCore import Property, QEvent, QRectF, Qt
 from PySide6.QtGui import QPaintEvent
 from PySide6.QtWidgets import QAbstractButton, QSizePolicy, QWidget
 
+from psi6.theme.apply import keyboard_focus_ring
 from psi6.theme.paint import as_color, create_painter, mix_color, scale_around_center
 from psi6.theme.runtime import token_color, token_int
 from psi6.ui import motion
@@ -81,7 +82,7 @@ class Switch(QAbstractButton):
             groove = QRectF(self.rect()).adjusted(1, 1, -1, -1)
             radius = groove.height() / 2
             painter.drawRoundedRect(groove, radius, radius)
-            if self.hasFocus() and enabled:
+            if enabled and keyboard_focus_ring(self):
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.setPen(as_color(token_color("focus")))
                 painter.drawRoundedRect(groove.adjusted(-1, -1, 1, 1), radius + 1, radius + 1)

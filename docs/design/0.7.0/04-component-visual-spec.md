@@ -94,7 +94,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 复选框 | 指示器 `color_sunken`，边 `color_control_border`，圆角 `max(2, radius-2)`，边宽始终 1px | 边 `color_primary` | 填充 `color_primary`，勾为 `color_on_primary` | 外侧环包住指示器加标签的整行。环不画成指示器的加粗边：加粗会缩小勾选图的内容盒，勾被裁掉，失焦后旧边还会留在原处 | 共享禁用 |
 | 单选 | 圆形指示器整枚用矢量绘制，底为 `color_surface`。不用样式表 `border-radius` 画圆，1px 圆边会发虚 | 环 `color_primary` | 外环与圆心都是 `color_primary`，中间留白。禁用时环和点都是 `color_muted` | 同复选，环在整行外侧 | 共享禁用 |
-| `Switch` | 轨铺满 `switch_width` × `switch_height`（现代 42×24），内缩 1px 的胶囊。关：`color_hover`；开：`color_primary`。拇指直径比轨高低 4px，`color_on_primary` | 轨色不变 | 滑块到位 | 外侧环 | 共享禁用 |
+| `Switch` | 轨铺满 `switch_width` × `switch_height`（现代 42×24），内缩 1px 的胶囊。关：`color_hover`；开：`color_primary`。拇指直径比轨高低 4px，`color_on_primary` | 轨色不变 | 滑块到位 | 外侧环。只在焦点环打开且 `psi6KbdFocus` 为键盘焦点时画。鼠标点击不画 | 共享禁用 |
 | `SegmentedControl` | 槽 `color_sunken` | 项 `color_hover` | 项 `color_elevated` 加 1px `color_border` | 内收环在选中项内 | 整组禁用 |
 | 下拉 | 与单行输入相同 | 与输入相同 | 菜单项用 `color_selected` | 外侧环在框上；菜单打开时当前项内收环 | 共享禁用 |
 | `CheckList` / `CheckItem` | 行高 `row_height` | 行 `color_hover` | 勾选不改变行填充，只用指示器 | 内收环 | 行文字 `color_disabled` |
@@ -157,7 +157,7 @@
 | `Spinner` | 旋转圆弧，颜色 `color_primary`。只在可见时循环，一圈为 `motion_ms` 的四倍。减少动效时停住。这是加载，不是进度 |
 | `BusyBar` | 高 6px 的轨道，一段 `color_primary` 滑过。只在可见时循环，一圈为 `motion_ms` 的五倍。不知道总量时用它，不用进度条 |
 | `BusyOverlay` | 盖住声明的区域，遮罩用 `color_overlay`，指示器 `color_primary`。页头和底栏留在外面 |
-| `Drawer` | 子控件盖住宿主，不进布局。右侧面板滑入，遮罩用 `color_overlay` 按进度变浓。点遮罩或 Esc 关闭。减少动效时直接到位 |
+| `Drawer` | 子控件盖住宿主，不进布局。右侧面板滑入，遮罩用 `color_overlay` 按进度变浓。点遮罩或 Esc 关闭。打开记住焦点，Tab 只在抽屉内循环，关闭后还回。减少动效时直接到位 |
 | `StatusProgress` | 放在窗口状态栏或任务底栏的右端。轨道 `color_sunken`，进度 `color_primary`，高 4px |
 
 `inform` / `warn` / `fail` / `confirm` 打开的是对话框或 Toast，外观遵守对应组件，不另做一套颜色。
@@ -213,7 +213,7 @@
 | `primary_button` / `danger_button` / `ghost_button` / `text_button` / `link_button` | 禁用态是 `color_bg` + `color_border_subtle` + `color_disabled`，不复用主色；文字不省略 |
 | `IconButton` | 点击区域 ≥ `control_height_sm`，图标仍是 `icon_size`；关闭用无边框图标按钮 |
 | `Tag` / `TagRow` / `StatusBadge` | 五种 `tone` 在样式表里各有规则；填充是语义色与 `color_bg` 的弱混合；表格状态列用它而不是灰字 |
-| `Switch` | 滑块与轨道同步；悬停不改轨道色；Space / Enter 可切换 |
+| `Switch` | 滑块与轨道同步；悬停不改轨道色；Space / Enter 可切换；焦点环只跟键盘焦点 |
 | `SearchField` | 有内容才显示清除；ESC 清空；最大宽 280 |
 | `FileInput` / `FolderInput` | 路径框最大 480、等宽；清除按钮默认开；保存接 `path_edited` |
 | `DropZone` | 虚线边；拖入改填充；焦点是外侧实线环而不是第二种边 |

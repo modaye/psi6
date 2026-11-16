@@ -40,9 +40,7 @@ class Pagination(QWidget):
 
     page_changed = Signal(int)
 
-    def __init__(
-        self, total: int = 1, *, current: int = 1, parent: QWidget | None = None
-    ) -> None:
+    def __init__(self, total: int = 1, *, current: int = 1, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("psi6Pagination")
         self._total = max(1, total)
@@ -82,6 +80,8 @@ class Pagination(QWidget):
     def _rebuild(self) -> None:
         while self._layout.count():
             item = self._layout.takeAt(0)
+            if item is None:
+                continue
             widget = item.widget()
             if widget is not None:
                 widget.setParent(None)
@@ -105,9 +105,7 @@ class Pagination(QWidget):
                 self._layout.addWidget(mark)
                 continue
             button = (
-                primary_button(str(entry))
-                if entry == self._current
-                else ghost_button(str(entry))
+                primary_button(str(entry)) if entry == self._current else ghost_button(str(entry))
             )
             button.setFixedSize(chip, chip_height)
             button.clicked.connect(

@@ -5,7 +5,9 @@
 
 1. **减少动效**：``Tokens.reduced_motion`` 打开或时长为 0 时直接置终值，不建动画对象。
 2. **不叠加**：同一对象同一属性的旧动画先停，快速进出悬停不会抖。
+   同一对象上的数值动画也只留一份。还没开始的延迟可以被 ``stop`` 取消。
 3. **不被回收**：运行中的动画登记在模块级列表，``finished`` 后自动出队。
+   目标对象销毁时从列表摘掉，避免延迟到点后还去启动。
 4. **时长来自 token**：``speed`` 只接受 ``fast`` / ``normal``，具体毫秒由主题决定。
 
 数值动画（``animate_value``）覆盖「不是 Qt 属性、但需要逐帧回调」的场景，
@@ -21,6 +23,7 @@ from PySide6.QtCore import (
     QEasingCurve,
     QObject,
     QPropertyAnimation,
+    QTimer,
     QVariantAnimation,
 )
 
@@ -39,6 +42,8 @@ __all__ = [
 # 动画会在下一帧崩掉。``finished`` 后从列表移除。
 _RUNNING: list[QPropertyAnimation] = []
 _RUNNING_VALUE: list[QVariantAnimation] = []
+# 还没 start 的延迟。``QTimer.singleShot`` 停不掉，所以计时器要自己留着。
+_PENDING: dict[int, QTimer] = {}
 
 # 常用缓动。Qt 样式表没有 transition，短交互统一用「进入减速」。
 _EASING = {
@@ -83,6 +88,7 @@ def animate(
     属性设成 ``end`` 并立即回调，返回 ``None``。
 
     ``delay_ms`` 大于 0 时先把属性设成 ``start``，到点再开始动画。
+    这段等待里调用 ``stop`` 会取消计时器，到点不再启动，也不调用 ``on_finish``。
     ``loop`` 为负表示无限循环；循环动画请只在控件可见时启动。
     """
 
@@ -98,7 +104,7 @@ def animate(
         return None
 
     stop(obj, name)
-    animation = QPropertyAnimation(obj, key)
+    animation = QPropertyAnimation(obj, key, obj)
     animation.setDuration(total)
     animation.setStartValue(start)
     animation.setEndValue(end)
@@ -106,6 +112,7 @@ def animate(
     animation.setLoopCount(-1 if loop < 0 else max(1, loop))
 
     def _finished() -> None:
+        _cancel_pending(animation)
         if animation in _RUNNING:
             _RUNNING.remove(animation)
         if on_finish is not None:
@@ -113,11 +120,10 @@ def animate(
 
     animation.finished.connect(_finished)
     _RUNNING.append(animation)
+    _bind_lifetime(obj, lambda: _forget(animation))
     if delay_ms > 0:
         obj.setProperty(name, start)
-        from PySide6.QtCore import QTimer
-
-        QTimer.singleShot(delay_ms, animation.start)
+        _schedule(animation, delay_ms)
     else:
         animation.start()
     return animation
@@ -136,16 +142,19 @@ def animate_value(
 ) -> QVariantAnimation | None:
     """逐帧把一个浮点值交给回调。用于不是 Qt 属性的量（例如展开高度）。
 
-    减少动效时只回调一次终值，不建动画。
+    减少动效时只回调一次终值，不建动画。同一对象上再次调用会停掉上一份。
+    ``stop(parent)`` 也会停掉它。
     """
 
     total = _duration(duration, speed)
     if total <= 0:
+        _stop_values(parent)
         on_value(end)
         if on_finish is not None:
             on_finish()
         return None
 
+    _stop_values(parent)
     animation = QVariantAnimation(parent)
     animation.setDuration(total)
     animation.setStartValue(float(start))
@@ -161,12 +170,17 @@ def animate_value(
 
     animation.finished.connect(_finished)
     _RUNNING_VALUE.append(animation)
+    _bind_lifetime(parent, lambda: _forget(animation))
     animation.start()
     return animation
 
 
 def stop(obj: QObject, prop: str | bytes | None = None) -> None:
-    """停掉某对象上的动画。``prop`` 为空时停掉它的全部属性动画。"""
+    """停掉某对象上的动画。
+
+    ``prop`` 为空时停掉它的全部属性动画，以及挂在它上面的数值动画。
+    还在延迟里的属性动画会被取消，到点不再启动。
+    """
 
     key = None
     if prop is not None:
@@ -176,17 +190,22 @@ def stop(obj: QObject, prop: str | bytes | None = None) -> None:
             continue
         if key is not None and animation.propertyName() != key:
             continue
+        _cancel_pending(animation)
         animation.stop()
         if animation in _RUNNING:
             _RUNNING.remove(animation)
+    if key is None:
+        _stop_values(obj)
 
 
 def stop_all() -> None:
     """停掉所有动画。主题切换或窗口关闭时用，避免动画指着已释放的控件。"""
 
     for animation in list(_RUNNING):
+        _cancel_pending(animation)
         animation.stop()
     _RUNNING.clear()
+    _PENDING.clear()
     for value_animation in list(_RUNNING_VALUE):
         value_animation.stop()
     _RUNNING_VALUE.clear()
@@ -201,6 +220,59 @@ def paused(obj: QObject) -> Iterator[None]:
 
     stop(obj)
     yield
+
+
+def _schedule(animation: QPropertyAnimation, delay_ms: int) -> None:
+    """到点再 ``start``。计时器挂在动画上，``stop`` 时关掉。"""
+
+    timer = QTimer(animation)
+    timer.setSingleShot(True)
+
+    def _begin() -> None:
+        _PENDING.pop(id(animation), None)
+        if animation in _RUNNING:
+            animation.start()
+
+    timer.timeout.connect(_begin)
+    _PENDING[id(animation)] = timer
+    timer.start(max(0, int(delay_ms)))
+
+
+def _cancel_pending(animation: QPropertyAnimation) -> None:
+    """取消还没开始的延迟。已经在跑的动画不受影响。"""
+
+    timer = _PENDING.pop(id(animation), None)
+    if timer is not None:
+        timer.stop()
+
+
+def _stop_values(owner: QObject) -> None:
+    """停掉挂在 ``owner`` 上的数值动画。"""
+
+    for animation in list(_RUNNING_VALUE):
+        if animation.parent() is not owner:
+            continue
+        animation.stop()
+        if animation in _RUNNING_VALUE:
+            _RUNNING_VALUE.remove(animation)
+
+
+def _forget(animation: QPropertyAnimation | QVariantAnimation) -> None:
+    """从登记里摘掉一份动画。属性动画还要取消延迟。"""
+
+    if isinstance(animation, QPropertyAnimation):
+        _cancel_pending(animation)
+        if animation in _RUNNING:
+            _RUNNING.remove(animation)
+        return
+    if animation in _RUNNING_VALUE:
+        _RUNNING_VALUE.remove(animation)
+
+
+def _bind_lifetime(owner: QObject, drop: Callable[[], None]) -> None:
+    """对象销毁时摘掉登记，避免延迟到点后还去启动。"""
+
+    owner.destroyed.connect(lambda *_args: drop())
 
 
 def _duration(duration: int | None, speed: str) -> int:

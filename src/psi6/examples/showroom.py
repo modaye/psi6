@@ -1,7 +1,7 @@
 """样例工作台。
 
 侧栏换页，页内按令牌、按钮、输入、数据、导航、反馈、容器、动效展开。
-默认石墨铜，焦点环默认关着。状态矩阵仍在 ``python -m psi6 kit --workbench``。
+默认浅色就是石墨铜，焦点环默认关着。状态矩阵仍在 ``python -m psi6 kit --workbench``。
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
 
 from psi6 import App
 from psi6.icons.render import icon_for
-from psi6.theme.builtin import Graphite, ModernDark
+from psi6.theme.builtin import ModernDark
 from psi6.theme.paint import as_color, create_painter
 from psi6.theme.runtime import token_color
 from psi6.ui import motion
@@ -248,7 +248,7 @@ class Showroom(DesktopWindow):
         text.addWidget(self._title)
         text.addWidget(self._hint)
         row.addLayout(text, stretch=1)
-        for label, theme in (("石墨", Graphite), ("浅色", "light"), ("深色", ModernDark)):
+        for label, theme in (("浅色", "light"), ("深色", ModernDark)):
             button = ghost_button(label)
             button.clicked.connect(lambda _checked=False, chosen=theme: self._app.set_theme(chosen))
             row.addWidget(button)
@@ -391,7 +391,14 @@ class Showroom(DesktopWindow):
                     )
                 ),
             ),
-            _section("字体", "标题、正文、辅助，外加一行等宽。没有 Display 档。", display, body, caption, mono),
+            _section(
+                "字体",
+                "标题、正文、辅助，外加一行等宽。没有 Display 档。",
+                display,
+                body,
+                caption,
+                mono,
+            ),
             _section("圆角", "只有这三档，卡片不再单开一档。", radii),
             _section("阴影", "默认不投影。浮起的卡片是例外。", shadows),
             _section(
@@ -529,9 +536,7 @@ class Showroom(DesktopWindow):
         group.addButton(right)
         switch = Switch(checked=True)
         switch_note = QLabel("动效已开启")
-        switch.toggled.connect(
-            lambda on: switch_note.setText("动效已开启" if on else "动效已关闭")
-        )
+        switch.toggled.connect(lambda on: switch_note.setText("动效已开启" if on else "动效已关闭"))
         return _scroll(
             _section(
                 "文本输入",
@@ -594,8 +599,16 @@ class Showroom(DesktopWindow):
         ]
         docs = TreeNode(id="docs", data={"name": "docs", "kind": "目录"})
         docs.children = [
-            TreeNode(id="visual", data={"name": "01-visual-language.md", "kind": "文件"}, has_children=False),
-            TreeNode(id="spec", data={"name": "04-component-visual-spec.md", "kind": "文件"}, has_children=False),
+            TreeNode(
+                id="visual",
+                data={"name": "01-visual-language.md", "kind": "文件"},
+                has_children=False,
+            ),
+            TreeNode(
+                id="spec",
+                data={"name": "04-component-visual-spec.md", "kind": "文件"},
+                has_children=False,
+            ),
         ]
         root = TreeNode(id="psi6", data={"name": "psi6", "kind": "目录"})
         root.children = [files, theme, docs]
@@ -664,7 +677,12 @@ class Showroom(DesktopWindow):
             _section("面包屑", "只表示当前位置。", crumbs),
             _section("侧栏导航", "和窗口左侧是同一套。选中是填充加主色竖条。", mini),
             _section("菜单", "勾选标记是主题图形。", menu_button),
-            _section("分段与步骤", "分段是互斥项。步骤条标出当前步。", SegmentedControl(("列表", "网格")), steps),
+            _section(
+                "分段与步骤",
+                "分段是互斥项。步骤条标出当前步。",
+                SegmentedControl(("列表", "网格")),
+                steps,
+            ),
             _section(
                 "侧栏选中条",
                 "左侧竖条是 color_primary，跟主题走。关掉后只留选中填充，文字不位移。",
@@ -780,9 +798,7 @@ class Showroom(DesktopWindow):
         raised.body.addWidget(QLabel("Card elevated"))
         raised.body.addWidget(QLabel("需要浮起时才加投影。"))
         tokens = Collapsible("什么是设计令牌？", expanded=True)
-        tokens.add_widget(
-            _hint("颜色、字号、间距、圆角和时长。控件只引用令牌，不把数值写死。")
-        )
+        tokens.add_widget(_hint("颜色、字号、间距、圆角和时长。控件只引用令牌，不把数值写死。"))
         motion_fold = Collapsible("如何关闭动效？")
         motion_fold.add_widget(_hint("页头的动效开关关掉后，滑动和转圈直接到终点，功能不变。"))
         drawer = Drawer("组件详情", self)
@@ -800,10 +816,14 @@ class Showroom(DesktopWindow):
         )
         return _scroll(
             _section("分区", "设置页用它，不用卡片墙。", panel),
-            _section("卡片", "平贴是默认。浮起才有一层轻投影。没有第三档阴影。", _row(flat, raised)),
+            _section(
+                "卡片", "平贴是默认。浮起才有一层轻投影。没有第三档阴影。", _row(flat, raised)
+            ),
             _section("折叠", "标题行可聚焦。展开只显示下面这一块。", tokens, motion_fold),
             _section("抽屉", "从右侧盖住窗口。点遮罩或按 Esc 关闭。", drawer_button),
-            _section("对话框", "带主体的对话框，以及一句确认。", _row(dialog_button, confirm_button)),
+            _section(
+                "对话框", "带主体的对话框，以及一句确认。", _row(dialog_button, confirm_button)
+            ),
         )
 
     def _open_dialog(self) -> None:
@@ -885,12 +905,17 @@ class Showroom(DesktopWindow):
                 f"fast {tokens.motion_fast_ms} ms，normal {tokens.motion_ms} ms。",
                 *[_pair(name, desc) for name, desc in notes],
             ),
-            _section("可以动手试", "页签指示器和加载圆弧都听页头的动效开关。", tabs, _row(spin, spin_toggle)),
+            _section(
+                "可以动手试",
+                "页签指示器和加载圆弧都听页头的动效开关。",
+                tabs,
+                _row(spin, spin_toggle),
+            ),
         )
 
 
 def main() -> None:
-    """打开样例。默认石墨铜，焦点环关着。"""
+    """打开样例。默认浅色（石墨铜），焦点环关着。"""
 
-    app = App("psi6-showroom", theme="graphite")
+    app = App("psi6-showroom", theme="light")
     raise SystemExit(app.run(Showroom(app), restore_geometry=True))

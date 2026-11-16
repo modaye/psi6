@@ -266,10 +266,10 @@ class Sidebar(QWidget):
             caption = QLabel("最近使用")
             caption.setObjectName("psi6NavSection")
             self._pinned.addWidget(caption)
-        for item in items:
-            button = self._make_button(item)
+        for dest in items:
+            button = self._make_button(dest)
             self._pinned.addWidget(button)
-            self._pinned_buttons[item.page_id] = button
+            self._pinned_buttons[dest.page_id] = button
 
     def pinned_button(self, page_id: str) -> QPushButton | None:
         """最近任务里的那个按钮。没有这一项时返回 ``None``。"""

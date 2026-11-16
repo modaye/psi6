@@ -24,6 +24,7 @@ from typing import Any
 from PySide6.QtCore import (
     QAbstractItemModel,
     QModelIndex,
+    QPersistentModelIndex,
     QPoint,
     Qt,
     Signal,
@@ -72,6 +73,15 @@ class TreeNode:
     data: dict[str, Any] = field(default_factory=dict)
     children: list[TreeNode] = field(default_factory=list)
     has_children: bool = True
+
+
+def _as_model_index(index: QModelIndex | QPersistentModelIndex) -> QModelIndex:
+    """``beginInsertRows`` 只收普通索引。持久索引先转回来。"""
+
+    if isinstance(index, QModelIndex):
+        return index
+    # 运行时可以从持久索引构造；类型桩只声明了从 QModelIndex 复制。
+    return QModelIndex(index)  # type: ignore[call-overload]
 
 
 class _TreeModel(QAbstractItemModel):
@@ -126,7 +136,12 @@ class _TreeModel(QAbstractItemModel):
         return out
 
     # -- QAbstractItemModel 实现 -----------------------------------------
-    def index(self, row: int, column: int, parent: QModelIndex | None = None) -> QModelIndex:
+    def index(
+        self,
+        row: int,
+        column: int,
+        parent: QModelIndex | QPersistentModelIndex | None = None,
+    ) -> QModelIndex:
         if parent is None or not parent.isValid():
             siblings = self._roots
         else:
@@ -135,7 +150,11 @@ class _TreeModel(QAbstractItemModel):
             return self.createIndex(row, column, siblings[row])
         return QModelIndex()
 
-    def parent(self, index: QModelIndex) -> QModelIndex:
+    def parent(  # type: ignore[override]
+        self, index: QModelIndex | QPersistentModelIndex, /
+    ) -> QModelIndex:
+        """父节点索引。与 ``QObject.parent()`` 的无参签名冲突，只能定向忽略。"""
+
         if not index.isValid():
             return QModelIndex()
         node = index.internalPointer()
@@ -151,16 +170,20 @@ class _TreeModel(QAbstractItemModel):
             return self.createIndex(siblings.index(parent_node), 0, parent_node)
         return QModelIndex()
 
-    def rowCount(self, parent: QModelIndex | None = None) -> int:
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> int:
         if parent is None or not parent.isValid():
             return len(self._roots)
         return len(self._display.get(id(parent.internalPointer()), []))
 
-    def columnCount(self, parent: QModelIndex | None = None) -> int:
+    def columnCount(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> int:
         del parent
         return len(self._host._columns)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+    def data(
+        self,
+        index: QModelIndex | QPersistentModelIndex,
+        role: int = Qt.ItemDataRole.DisplayRole,
+    ) -> Any:
         if not index.isValid():
             return None
         node = index.internalPointer()
@@ -183,12 +206,12 @@ class _TreeModel(QAbstractItemModel):
             return self._host._columns[section].header
         return None
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+    def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlag:
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
-    def hasChildren(self, parent: QModelIndex | None = None) -> bool:
+    def hasChildren(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> bool:
         if parent is None or not parent.isValid():
             return bool(self._roots)
         node = parent.internalPointer()
@@ -196,18 +219,18 @@ class _TreeModel(QAbstractItemModel):
             return node.has_children
         return bool(self._display.get(id(node)))
 
-    def canFetchMore(self, parent: QModelIndex | None = None) -> bool:
+    def canFetchMore(self, parent: QModelIndex | QPersistentModelIndex, /) -> bool:
         if self._host._loader is None:
             return False
-        node = None if (parent is None or not parent.isValid()) else parent.internalPointer()
+        node = None if not parent.isValid() else parent.internalPointer()
         key = _ROOT_KEY if node is None else id(node)
         # 根已在构造时加载；其余节点只有尚未取过子节点时才需要取。
         return key not in self._source
 
-    def fetchMore(self, parent: QModelIndex | None = None) -> None:
+    def fetchMore(self, parent: QModelIndex | QPersistentModelIndex, /) -> None:
         if self._host._loader is None:
             return
-        node = None if (parent is None or not parent.isValid()) else parent.internalPointer()
+        node = None if not parent.isValid() else parent.internalPointer()
         key = _ROOT_KEY if node is None else id(node)
         if key in self._source:
             return
@@ -218,7 +241,7 @@ class _TreeModel(QAbstractItemModel):
         last = first + len(children) - 1
         # 定向插入，不动整棵树，已展开的父节点保持展开。懒加载模式下不做筛选。
         if last >= first:
-            self.beginInsertRows(parent if parent is not None else QModelIndex(), first, last)
+            self.beginInsertRows(_as_model_index(parent), first, last)
         self._source[key] = list(children)
         for child in children:
             self._index_subtree(child)

@@ -7,8 +7,8 @@ from collections.abc import Callable, Iterator
 from contextlib import suppress
 from inspect import Parameter, signature
 
-from PySide6.QtCore import QEvent, QObject
-from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QColor, QFocusEvent, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QLayout, QPushButton, QStyleFactory, QWidget
 
 from psi6.theme.chrome import chrome_images
@@ -22,6 +22,23 @@ _FAMILY_RE = re.compile(r'"[^"]*"|\'[^\']*\'|[^,]+')
 # PaletteChange 事件过滤器）都读到同一份开关。
 _FOCUS_RING_KEY = "psi6FocusRingEnabled"
 _FUSION_KEY = "psi6FusionStyle"
+# 键盘焦点标记。QSS 把 ``:focus`` 收成 ``:focus[psi6KbdFocus="1"]``，
+# 鼠标点击不会带上这个值，环就不会铺开。画廊预览用的是属性 ``psi6State``，不走这里。
+_KBD_FOCUS_PROP = "psi6KbdFocus"
+_KBD_FOCUS_ON = "1"
+_KBD_FOCUS_OFF = "0"
+# Tab / Backtab / Shortcut / Other 算键盘。鼠标、窗口激活、弹层不算。
+# Other 覆盖程序里的 setFocus()，和浏览器的 focus-visible 一样保留环。
+_KEYBOARD_FOCUS_REASONS = frozenset(
+    {
+        Qt.FocusReason.TabFocusReason,
+        Qt.FocusReason.BacktabFocusReason,
+        Qt.FocusReason.ShortcutFocusReason,
+        Qt.FocusReason.OtherFocusReason,
+    }
+)
+# 只改伪类 ``:focus``。后面已是属性、标识符或 ``:focus-within`` 这类延伸时不动。
+_FOCUS_PSEUDO = re.compile(r":focus(?![\w\[-])")
 # setStyleSheet 会同步再发 PaletteChange。正在写的按钮记在这里，避免过滤器把自己叫进去。
 _BUTTON_STYLE_DEPTH: set[int] = set()
 
@@ -84,6 +101,16 @@ def _focus_rules(
         body = "\n".join(f"    {line}" for line in declarations[key].splitlines())
         rules[key] = f"{selector} {{\n{body}\n}}"
     return rules
+
+
+def _gate_focus_keyboard(sheet: str) -> str:
+    """把样式表里的 ``:focus`` 收成键盘焦点。
+
+    ``psi6State="focus"`` 是属性选择器，文本里没有 ``:focus`` 伪类，预览环保持原样。
+    已经门控过的选择器不再套第二层。
+    """
+
+    return _FOCUS_PSEUDO.sub(f':focus[{_KBD_FOCUS_PROP}="{_KBD_FOCUS_ON}"]', sheet)
 
 
 def font_families(declaration: str) -> list[str]:
@@ -246,8 +273,10 @@ QRadioButton::indicator:checked:disabled {{
 def build_stylesheet(tokens: Tokens, *, focus_ring: bool = True) -> str:
     """由 token 生成全局 QSS。覆盖内部工具会碰到的原生控件。
 
-    ``focus_ring=False`` 时不画焦点环，只抑制 Qt 原生焦点框。这个函数默认仍是
-    ``True``，单独预览和既有主题断言还能看到环。``App`` 默认关掉，因为有的控件上环很难看。
+    ``focus_ring=False`` 时不画焦点环，只抑制 Qt 原生焦点框，选择器保持 ``:focus``。
+    ``True`` 时环仍在，但 ``:focus`` 会收成 ``:focus[psi6KbdFocus="1"]``，只有键盘
+    焦点才画。``psi6State="focus"`` 不受影响。这个函数默认仍是 ``True``。
+    ``App`` 默认关掉。
     """
 
     t = tokens.resolve_states()
@@ -338,7 +367,7 @@ QCheckBox:focus, QRadioButton:focus {{
         focus_pad=focus_pad,
         focus_min_h=focus_min_h,
     )
-    return f"""
+    sheet = f"""
 QWidget {{
     font-family: {t.font_family};
     font-size: {t.font_size}px;
@@ -1327,6 +1356,9 @@ QLabel#psi6SettingTitle {{
     color: {t.color_text};
 }}
 """
+    if focus_ring:
+        return _gate_focus_keyboard(sheet)
+    return sheet
 
 
 def apply_theme(
@@ -1334,13 +1366,15 @@ def apply_theme(
 ) -> None:
     """安装字体、Fusion、调色板与样式表，使未封装的原生控件也可直接使用。
 
-    ``focus_ring=False`` 关闭全局与逐控件按钮的焦点环。这个函数默认仍是打开；
+    ``focus_ring=False`` 关闭全局与逐控件按钮的焦点环，并卸下键盘焦点过滤器。
+    ``True`` 时样式表按键盘焦点门控，过滤器随这次调用幂等安装。这个函数默认仍是打开；
     ``App`` 默认关掉。开关要写在
     ``setPalette`` 之前：PaletteChange 事件过滤器会立刻按它重刷主题化按钮。
     """
 
     t = (tokens or DEFAULT_TOKENS).resolve_states()
     app.setProperty(_FOCUS_RING_KEY, bool(focus_ring))
+    _sync_keyboard_focus_filter(app, enabled=bool(focus_ring))
     # Token 必须在 setPalette / setStyleSheet 之前写入：那些调用会触发
     # IconButton.changeEvent，若仍读到上一套 psi6Color*，深色里就会变成深色图标。
     from psi6.icons.registry import apply_theme_icons
@@ -1457,6 +1491,8 @@ def psi6_button_stylesheet(
     if cached is not None:
         return cached
     sheet = _build_button_stylesheet(kind, resolved, focus_ring=focus_ring)
+    if focus_ring:
+        sheet = _gate_focus_keyboard(sheet)
     if len(_BUTTON_SHEETS) > 64:
         _BUTTON_SHEETS.clear()
     _BUTTON_SHEETS[key] = sheet
@@ -1485,10 +1521,7 @@ def _build_button_stylesheet(kind: str, t: Tokens, *, focus_ring: bool) -> str:
     # 焦点环开关与全局 QSS 一致：关闭时只抑制原生焦点框，聚焦不改外观与尺寸。
     if focus_ring:
         primary_focus = (
-            "QPushButton:focus {\n"
-            f"    border-color: {t.color_focus};\n"
-            "    outline: none;\n"
-            "}"
+            f"QPushButton:focus {{\n    border-color: {t.color_focus};\n    outline: none;\n}}"
         )
         danger_focus = primary_focus
         ghost_focus = (
@@ -1891,3 +1924,69 @@ def install_button_style_sync(app: QApplication) -> None:
         return
     _style_filter = _Psi6ButtonStyleFilter(app)
     app.installEventFilter(_style_filter)
+
+
+def keyboard_focus_ring(widget: QWidget) -> bool:
+    """自绘控件是否该画焦点环。
+
+    应用打开了焦点环，控件正拥有焦点，并且这次焦点来自键盘
+    （``psi6KbdFocus`` 为 ``"1"``）。鼠标点上的焦点不画。
+    """
+
+    app = QApplication.instance()
+    if app is None or app.property(_FOCUS_RING_KEY) is not True:
+        return False
+    return bool(widget.hasFocus() and widget.property(_KBD_FOCUS_PROP) == _KBD_FOCUS_ON)
+
+
+class _KeyboardFocusFilter(QObject):
+    """按 ``QFocusEvent.reason()`` 给控件打 ``psi6KbdFocus``。
+
+    键盘来源（Tab、Backtab、Shortcut、Other）写 ``"1"``，鼠标、窗口激活和弹层写
+    ``"0"``。失焦清零。样式表只在 ``"1"`` 上画环，所以鼠标点选不再出环。
+    过滤器挂在 ``QApplication`` 上，能看见所有控件的焦点事件。
+    """
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        try:
+            if not isinstance(watched, QWidget):
+                return False
+            kind = event.type()
+            if kind == QEvent.Type.FocusIn and isinstance(event, QFocusEvent):
+                _mark_keyboard_focus(watched, event.reason() in _KEYBOARD_FOCUS_REASONS)
+            elif kind == QEvent.Type.FocusOut:
+                _mark_keyboard_focus(watched, False)
+        except RuntimeError:
+            # 控件已销毁时不要打断 Qt 的事件派发。
+            return False
+        return False
+
+
+def _mark_keyboard_focus(widget: QWidget, keyboard: bool) -> None:
+    """写入标记并重新打磨，让 QSS 立刻改用新的属性选择器。"""
+
+    value = _KBD_FOCUS_ON if keyboard else _KBD_FOCUS_OFF
+    if widget.property(_KBD_FOCUS_PROP) == value:
+        return
+    widget.setProperty(_KBD_FOCUS_PROP, value)
+    style = widget.style()
+    style.unpolish(widget)
+    style.polish(widget)
+    widget.update()
+
+
+_kbd_filter: _KeyboardFocusFilter | None = None
+
+
+def _sync_keyboard_focus_filter(app: QApplication, *, enabled: bool) -> None:
+    """``focus_ring`` 打开时安装过滤器，关掉时卸下。重复调用不叠两层。"""
+
+    global _kbd_filter
+    if enabled:
+        if _kbd_filter is None:
+            _kbd_filter = _KeyboardFocusFilter(app)
+        app.removeEventFilter(_kbd_filter)
+        app.installEventFilter(_kbd_filter)
+        return
+    if _kbd_filter is not None:
+        app.removeEventFilter(_kbd_filter)
