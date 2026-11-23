@@ -389,9 +389,9 @@ _USAGE: dict[str, tuple[str, str, str]] = {
         "可关闭的文档页签（用 TabView）。",
     ),
     "TabView": (
-        "多文档标签页：可关闭、可拖动重排、空态；标签顺序与当前项可持久化。",
-        "一次打开多份文档，按 ``key`` 复用控件。",
-        "侧栏换页（用 ``AppShell``）或单页分栏（用 ``Workspace``）。",
+        "文档工作区标签：选中项连着内容表面，可关闭、可拖动、可搜索溢出列表。",
+        "一次打开多份文档，按 ``key`` 复用控件。页内几段说明用 ``UnderlineTabs``。",
+        "侧栏换页（用 ``AppShell``）、有限互斥选项（用 ``SegmentedControl``）。",
     ),
     "TableColumn": (
         "``DataTable`` 的列定义。",

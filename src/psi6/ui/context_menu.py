@@ -233,6 +233,10 @@ def attach_context_menu(
     view.setContextMenuPolicy(policy)
     view.setProperty("psi6ContextMenu", True)
 
+    previous = getattr(view, "_psi6_menu_handler", None)
+    if previous is not None:
+        view.removeEventFilter(previous)
+        previous.deleteLater()
     handler = _ContextMenuHandler(view, builder, widget, use_column_target=source is not None)
     view.installEventFilter(handler)
     view._psi6_menu_handler = handler  # type: ignore[attr-defined]

@@ -1,4 +1,6 @@
-"""0.7.0 阶段一：在真实窗口里截 kit 与 gallery 的改前画面。
+"""0.7.0 视觉审计：在真实窗口里截 kit 与 gallery。
+
+默认写入 ``docs/plans/audit-0.7.0/before``。阶段四改后画面用 ``--dest after``。
 
 不改主题和控件。截图走当前屏幕的 ``QScreen.grabWindow``，窗口由 ``App.run`` 显示。
 ``--pass dpi`` 由主进程带着 ``QT_SCALE_FACTOR=1.5`` 拉起，用来看 150% 逻辑缩放。
@@ -28,7 +30,7 @@ from psi6.examples.minimal import build as build_minimal
 from psi6.examples.task_job import build as build_task
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "docs" / "plans" / "audit-0.7.0" / "before"
+AUDIT_ROOT = ROOT / "docs" / "plans" / "audit-0.7.0"
 
 THEMES = ("light", "modern-dark", "compact", "compact-dark")
 KIT_PAGES = (
@@ -93,11 +95,20 @@ class Shot:
 class VisualAudit:
     """按主题和页面驱动已显示的窗口，并把屏幕上的窗口画下来。"""
 
-    def __init__(self, app: App, out: Path, *, dpi_pass: bool, scenes: bool) -> None:
+    def __init__(
+        self,
+        app: App,
+        out: Path,
+        *,
+        dpi_pass: bool,
+        scenes: bool,
+        scale_name: str = "dpi150",
+    ) -> None:
         self.app = app
         self.out = out
         self.dpi_pass = dpi_pass
         self.scenes = scenes
+        self.scale_name = scale_name
         self.shots: list[Shot] = []
         self.errors: list[str] = []
         self.kit: KitWindow | None = None
@@ -110,7 +121,7 @@ class VisualAudit:
         self._pump(320)
         pages = DPI_PAGES if self.dpi_pass else KIT_PAGES
         themes = DPI_THEMES if self.dpi_pass else THEMES
-        folder = "dpi150/kit" if self.dpi_pass else "kit"
+        folder = f"{self.scale_name}/kit" if self.dpi_pass else "kit"
         for theme in themes:
             self._theme(theme)
             for page in pages:
@@ -119,7 +130,9 @@ class VisualAudit:
                 if page == "buttons" and theme in {"light", "modern-dark"}:
                     self._focus_start()
                     self._pump(120)
-                    self._shoot(window, f"{folder}/{theme}/buttons-focus.png", theme, "buttons-focus")
+                    self._shoot(
+                        window, f"{folder}/{theme}/buttons-focus.png", theme, "buttons-focus"
+                    )
         if self.dpi_pass:
             return
         self._theme("light")
@@ -148,7 +161,7 @@ class VisualAudit:
         self._place(gallery)
         gallery.show()
         themes = DPI_THEMES if self.dpi_pass else THEMES
-        folder = "dpi150/gallery" if self.dpi_pass else "gallery"
+        folder = f"{self.scale_name}/gallery" if self.dpi_pass else "gallery"
         for theme in themes:
             self._theme(theme)
             self._shoot(gallery, f"{folder}/{theme}/home.png", theme, "gallery")
@@ -159,7 +172,7 @@ class VisualAudit:
         builders = SCENE_BUILDERS
         if scene_names is not None:
             builders = tuple(item for item in SCENE_BUILDERS if item[0] in scene_names)
-        scene_folder = "dpi150/scenes" if self.dpi_pass else "scenes"
+        scene_folder = f"{self.scale_name}/scenes" if self.dpi_pass else "scenes"
         for theme in themes:
             self._theme(theme)
             for name, builder in builders:
@@ -174,7 +187,12 @@ class VisualAudit:
         """把截图清单和屏幕参数写到输出目录。"""
 
         self.out.mkdir(parents=True, exist_ok=True)
-        name = "manifest-dpi.json" if self.dpi_pass else "manifest.json"
+        if not self.dpi_pass:
+            name = "manifest.json"
+        elif self.scale_name == "dpi150":
+            name = "manifest-dpi.json"
+        else:
+            name = f"manifest-{self.scale_name}.json"
         path = self.out / name
         previous: list[dict[str, object]] = []
         if path.exists():
@@ -186,7 +204,7 @@ class VisualAudit:
         for shot in self.shots:
             by_path[shot.path] = shot.__dict__
         payload = {
-            "label": "before",
+            "label": self.out.name,
             "pass": "full",
             "screen": screen_info,
             "shots": [by_path[key] for key in sorted(by_path)],
@@ -343,13 +361,31 @@ def _screen_info() -> dict[str, object]:
     }
 
 
-def _launch_dpi_pass(*, scenes: bool) -> None:
-    """另起进程做 150% 缩放。缩放因子必须在 QApplication 之前生效。"""
+def _scale_name(factor: str) -> str:
+    """``1.5`` 仍写到原来的 ``dpi150`` 目录，其它倍率用 ``dpi125`` 这种名字。"""
+
+    if factor in {"1.5", "1.50"}:
+        return "dpi150"
+    token = factor.replace(".", "")
+    return f"dpi{token}"
+
+
+def _launch_scaled_pass(factor: str, *, scenes: bool, dest: str) -> None:
+    """另起进程做逻辑缩放。缩放因子必须在 QApplication 之前生效。"""
 
     env = os.environ.copy()
-    env["QT_SCALE_FACTOR"] = "1.5"
+    env["QT_SCALE_FACTOR"] = factor
     env.pop("QT_QPA_PLATFORM", None)
-    command = [sys.executable, str(Path(__file__).resolve()), "--pass", "dpi"]
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--pass",
+        "dpi",
+        "--dest",
+        dest,
+        "--scale",
+        factor,
+    ]
     if not scenes:
         command.append("--no-scenes")
     completed = subprocess.run(
@@ -359,18 +395,26 @@ def _launch_dpi_pass(*, scenes: bool) -> None:
         check=False,
     )
     if completed.returncode != 0:
-        print(f"150% 审计进程退出码 {completed.returncode}", flush=True)
+        print(f"{factor} 审计进程退出码 {completed.returncode}", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     """打开真实窗口，截完后退出。"""
 
-    parser = argparse.ArgumentParser(description="截 psi6 0.7.0 视觉审计的改前画面")
+    parser = argparse.ArgumentParser(description="截 psi6 0.7.0 视觉审计的真实窗口")
     parser.add_argument("--pass", dest="which", choices=("full", "dpi", "kit"), default="full")
+    parser.add_argument("--dest", choices=("before", "after"), default="before")
+    parser.add_argument("--scale", default="1.5", help="dpi 进程使用的 QT_SCALE_FACTOR")
+    parser.add_argument(
+        "--scales",
+        default="1.5",
+        help="full 模式额外拉起的缩放，逗号分隔。1.5 仍写入 dpi150",
+    )
     parser.add_argument("--no-scenes", action="store_true")
     args = parser.parse_args(argv)
     dpi_pass = args.which == "dpi"
     scenes = args.which != "kit" and not args.no_scenes
+    out = AUDIT_ROOT / args.dest
     config_root = Path(tempfile.mkdtemp(prefix="psi6-audit-"))
     app = App(
         "psi6-audit-dpi" if dpi_pass else "psi6-audit",
@@ -381,7 +425,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     app.qt_app.setQuitOnLastWindowClosed(False)
     window = KitWindow(app)
-    audit = VisualAudit(app, OUT, dpi_pass=dpi_pass, scenes=scenes)
+    audit = VisualAudit(
+        app,
+        out,
+        dpi_pass=dpi_pass,
+        scenes=scenes,
+        scale_name=_scale_name(args.scale),
+    )
 
     def start() -> None:
         try:
@@ -397,10 +447,9 @@ def main(argv: list[str] | None = None) -> int:
 
     QTimer.singleShot(0, start)
     code = app.run(window, tray=False, restore_geometry=False, float_ball=False)
-    if args.which == "full":
-        _launch_dpi_pass(scenes=True)
-    elif args.which == "kit":
-        _launch_dpi_pass(scenes=False)
+    if args.which in {"full", "kit"}:
+        for factor in [item.strip() for item in args.scales.split(",") if item.strip()]:
+            _launch_scaled_pass(factor, scenes=args.which == "full", dest=args.dest)
     return code
 
 

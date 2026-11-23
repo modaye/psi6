@@ -132,6 +132,8 @@ class ConfigStore:
             _warn_fallback(path, exc, backup)
             return None
         if not isinstance(data, dict):
+            backup = self._backup(path)
+            _warn_fallback(path, ValueError("配置必须是 JSON 对象"), backup)
             return None
         if migrate is None:
             return data

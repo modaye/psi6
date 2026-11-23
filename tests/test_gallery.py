@@ -154,5 +154,5 @@ def test_kit_workbench_page_records_and_restores_layout(app, qtbot) -> None:
     buttons["恢复布局"].click()
     assert tabs.keys() == saved_keys
     assert tabs.count() == 3
-    assert tabs.title(saved_keys[0]) == "文档 1"
+    assert tabs.title(saved_keys[0]) == "数据分析.xlsx"
     assert work.visible_panes() == ["left", "center", "right"]

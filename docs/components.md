@@ -5,7 +5,7 @@
 | 控件 | 导入 | 何时用 | 不要用它代替 |
 | --- | --- | --- | --- |
 | `Workspace` | `psi6.ui.workspace` | 一页里的工具栏、面包屑和左中右栏。`set_stretch` 决定还没拖过时的宽度；`set_pane_visible` 显隐栏，拖过的宽度按**栏名**记住，`state()` / `set_state()` 导出与恢复，`save_state()` / `restore_state()` 走 `ConfigStore`。留白跟随当前主题间距 | 侧栏换页（换页用 `AppShell`）、浮动或自由停靠窗口 |
-| `TabView` | `psi6.ui.tab_view` | 多视图文档：按 `key` 复用控件，`add_tab` / `close_tab` 增删，可关闭、可拖动重排，全部关掉显示空态。`state()` 只记 `keys` 顺序和 `current`，`save_state()` / `restore_state()` 持久化到 `ConfigStore`；恢复时先用 `add_tab` 放回控件，再对齐顺序。`context_menu()` 挂页签右键菜单 | 侧栏换页（`AppShell`）或单页分栏（`Workspace`） |
+| `TabView` | `psi6.ui.tab_view` | 文档工作区：按 `key` 复用控件，`add_tab` / `close_tab` 增删，可关闭、可拖动重排，全部关掉显示空态。`state()` 默认只记 `keys` 和 `current`，用过图标或修改状态时才多记 `items`。`save_state()` / `restore_state()` 持久化到 `ConfigStore`。自带文档右键菜单，`context_menu()` 可换成自己的 | 侧栏换页（`AppShell`）、页内切换（`UnderlineTabs`）或有限选项（`SegmentedControl`） |
 | `ToolBar` | `psi6.ui.workspace` | 主要动作在左，次要动作在右 | 把开始、取消和进度排成任务条 |
 | `Breadcrumb` | `psi6.ui.workspace` | 只显示当前位置 | 页面切换 |
 | `DataTable` | `psi6.ui.data_table` | 结果预览。`sort_by` 或点击表头排序，`set_filter` 按显示文本筛选；排序和筛选保留选中行、当前行和滚动位置。双击发 `record_activated`（记录副本），需要行号时接 `row_activated`。行只存一份，筛选/排序只重排原始行索引，视图通过 `fetchMore` 分批取行，几万行不卡首屏。`set_reorderable(True)` 后可拖动一行改变原始顺序；有排序或筛选时拖动无效。`set_history` 后这次移动可以撤销 | 现在不要拿它当树表、分页网格或单元格编辑。那些如果要做，另起控件 |
@@ -14,7 +14,7 @@
 
 校验错误显示在字段下面。控件里能选的值仍以模型校验为准。Qt 已经能表达的行为不再包一层；表格继续是结果表，不做成可编辑单元格。分组用 `Card`（弱边，需要时 `elevated=True`）。平面分区用 `Panel`。文件索引和设置页仍然不是卡片墙。
 
-页内文字页签用 `UnderlineTabs`：底部主色条滑到当前项。可关闭的文档页签仍是 `TabView`，选中项底部也有同样的滑动条。
+页内文字页签用 `UnderlineTabs`：底部主色条滑到当前项。文档工作区用 `TabView`：选中标签与内容区同一表面，底边主色铺满该标签，关闭按钮按悬停显隐。有限互斥选项用 `SegmentedControl`。
 
 临时详情用 `Drawer(title, host)`，它盖住宿主并从右侧滑入。`body()` 是内容布局。点遮罩或按 Esc 关闭。不要把它放进页面布局。
 

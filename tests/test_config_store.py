@@ -153,6 +153,19 @@ def test_failed_migration_falls_back_to_defaults(tmp_path: Path) -> None:
     assert path.with_name("config.json.bak").is_file()
 
 
+def test_load_data_backs_up_when_json_is_not_an_object(tmp_path: Path) -> None:
+    """顶层是数组或标量时和损坏文件一样备份，避免原文件被静默丢弃。"""
+
+    path = tmp_path / "demo" / "layout.json"
+    path.parent.mkdir()
+    path.write_text("[1, 2]", encoding="utf-8")
+    loaded = ConfigStore(tmp_path).load_data("demo", "layout.json")
+    assert loaded is None
+    backup = path.with_name("layout.json.bak")
+    assert backup.is_file()
+    assert backup.read_text(encoding="utf-8") == "[1, 2]"
+
+
 def test_load_data_runs_migrations(tmp_path: Path) -> None:
     store = ConfigStore(tmp_path)
     store.save_data("demo", "layout.json", {"side": "left"})

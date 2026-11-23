@@ -644,6 +644,56 @@ def test_exclusive_slot_is_taken_once_across_threads(qtbot) -> None:
     assert runner.is_busy("batch") is False
 
 
+def test_on_busy_runs_on_the_caller_thread(qtbot) -> None:
+    """同槽被挡下时，``on_busy`` 在调用 ``submit`` 的线程上同步执行。"""
+
+    runner = TaskRunner()
+    hold = threading.Event()
+    runner.submit(lambda: hold.wait(2), exclusive="slot")
+    seen: list[int] = []
+    runner.submit(
+        lambda: None, exclusive="slot", on_busy=lambda: seen.append(threading.get_ident())
+    )
+    assert seen == [threading.get_ident()]
+    hold.set()
+
+
+def test_shutdown_waits_until_an_in_flight_submit_starts(qtbot) -> None:
+    """登记之后、线程池启动之前调用 ``shutdown``，不能先返回再把任务启动。"""
+
+    entered = threading.Event()
+    release = threading.Event()
+    phase = {"returned": False, "started_after_shutdown": None, "ok": None}
+
+    class BlockingRunner(TaskRunner):
+        def _start_job(self, runnable) -> None:
+            entered.set()
+            assert release.wait(3)
+            phase["started_after_shutdown"] = phase["returned"]
+            super()._start_job(runnable)
+
+    runner = BlockingRunner()
+    worker = threading.Thread(target=lambda: runner.submit(lambda: None))
+    worker.start()
+    assert entered.wait(2)
+
+    def stop() -> None:
+        phase["ok"] = runner.shutdown(timeout_ms=3000)
+        phase["returned"] = True
+
+    stopper = threading.Thread(target=stop)
+    stopper.start()
+    stopper.join(0.2)
+    assert stopper.is_alive()
+    release.set()
+    stopper.join(3)
+    worker.join(3)
+    assert stopper.is_alive() is False
+    assert phase["started_after_shutdown"] is False
+    assert phase["returned"] is True
+    assert phase["ok"] is True
+
+
 def test_shutdown_drains_queued_finish_callbacks(qtbot) -> None:
     runner = TaskRunner()
     finished: list[bool] = []

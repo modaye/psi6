@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
 import sys
 from ctypes import Structure, byref, c_int, sizeof
-from ctypes.wintypes import HWND
 
 from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QGuiApplication, QPixmap, QRegion
@@ -38,16 +38,24 @@ def window_radius() -> int:
 
 
 def apply_native_round(widget: QWidget, *, rounded: bool) -> bool:
-    """Win11 合成器圆角 + 细阴影。offscreen / 失败时返回 False。"""
+    """Win11 合成器圆角 + 细阴影。offscreen、非 Windows 或调用失败时返回 False。"""
+
+    if sys.platform != "win32" or QGuiApplication.platformName() == "offscreen":
+        return False
+    return _apply_win32_round(widget, rounded=rounded)
+
+
+def _apply_win32_round(widget: QWidget, *, rounded: bool) -> bool:
+    """调用 DWM。``ctypes.windll`` 只在 Windows 的类型存根里存在，这里用 getattr 取值。"""
 
     if sys.platform != "win32":
         return False
-    if QGuiApplication.platformName() == "offscreen":
-        return False
     try:
-        from ctypes import windll
+        import ctypes
 
-        hwnd = HWND(int(widget.winId()))
+        windll = getattr(ctypes, "windll")  # noqa: B009
+        wintypes = importlib.import_module("ctypes.wintypes")
+        hwnd = wintypes.HWND(int(widget.winId()))
         dwmapi = windll.dwmapi
         preference = c_int(DWMWCP_ROUND if rounded else DWMWCP_DONOTROUND)
         result = dwmapi.DwmSetWindowAttribute(
@@ -61,7 +69,7 @@ def apply_native_round(widget: QWidget, *, rounded: bool) -> bool:
         margins = _MARGINS(0, 0, 0, 1)
         dwmapi.DwmExtendFrameIntoClientArea(hwnd, byref(margins))
         return True
-    except (AttributeError, OSError, ValueError):
+    except (AttributeError, ImportError, OSError, ValueError):
         return False
 
 

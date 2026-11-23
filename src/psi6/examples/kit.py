@@ -35,7 +35,6 @@ from psi6.ui.buttons import danger_button, ghost_button, primary_button, text_bu
 from psi6.ui.chrome import PageHeader
 from psi6.ui.collapsible import Collapsible
 from psi6.ui.column_picker import ColumnPicker, column_toggle_menu
-from psi6.ui.context_menu import MenuAction, MenuTarget
 from psi6.ui.data_table import DataTable, TableColumn
 from psi6.ui.desktop_window import DesktopWindow
 from psi6.ui.empty_state import EmptyState
@@ -813,7 +812,7 @@ class KitWindow(DesktopWindow):
         header = PageHeader(
             "多视图与面板布局",
             hint=(
-                "TabView 按 key 复用文档：可关闭、可拖动重排、全关掉显示空态；"
+                "文档标签连着内容表面：可关闭、可拖动重排、全关掉显示空态；"
                 "Workspace 的栏可显隐。标签顺序和分栏布局可以记录并恢复。"
             ),
             icon="layout-dashboard",
@@ -846,14 +845,27 @@ class KitWindow(DesktopWindow):
         saved_tabs: dict[str, Any] | None = None
         saved_work: dict[str, Any] | None = None
 
+        samples = {
+            1: ("数据分析.xlsx", "table", "D:/work/数据分析.xlsx"),
+            2: ("项目报告.docx", "file", "D:/work/项目报告.docx"),
+            3: ("main.py", "terminal", "D:/work/main.py"),
+        }
+
         def open_doc() -> None:
             sequence[0] += 1
             key = f"doc-{sequence[0]}"
-            title = f"文档 {sequence[0]}"
+            title, icon, path = samples.get(
+                sequence[0],
+                (f"文档 {sequence[0]}", "file", ""),
+            )
             page = QLabel(f"{title} 的内容")
             page.setAlignment(Qt.AlignmentFlag.AlignCenter)
             docs[key] = (page, title)
             tabs.add_tab(key, title, page)
+            tabs.set_icon(key, icon)
+            tabs.set_path(key, path)
+            if sequence[0] == 2:
+                tabs.set_modified(key, True)
             note.setText(f"已打开 {tabs.count()} 份文档，当前：{tabs.current_key()}")
 
         def close_current() -> None:
@@ -901,31 +913,7 @@ class KitWindow(DesktopWindow):
         column.addWidget(actions)
         column.addWidget(note)
         column.addWidget(work, stretch=1)
-
-        # 页签右键：关闭 / 关闭其他 / 关闭全部。命中哪个页签就作用于哪个，不用先切过去。
-        def tab_menu(target: MenuTarget) -> list[MenuAction]:
-            if not target.hit:
-                return []
-            key = str(target.key)
-            others = list(tabs.keys())
-            others.remove(key)
-            return [
-                MenuAction(f"关闭「{target.data}」", lambda: tabs.close_tab(key), icon="x"),
-                MenuAction(
-                    "关闭其他",
-                    lambda: [tabs.close_tab(item) for item in others],
-                    enabled=bool(others),
-                ),
-                MenuAction.line(),
-                MenuAction(
-                    "关闭全部",
-                    tabs.close_all,
-                    enabled=tabs.count() > 0,
-                    dangerous=True,
-                ),
-            ]
-
-        tabs.context_menu(tab_menu)
+        tabs.blank_activated.connect(open_doc)
         open_doc()
         open_doc()
         return self._wrap(header, body)

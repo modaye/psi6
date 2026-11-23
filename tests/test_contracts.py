@@ -332,6 +332,31 @@ def test_packaged_icons_follow_the_module(tmp_path: Path, monkeypatch) -> None:
     assert tmp_path not in folder.parents
 
 
+_STABLE_NAMES = (
+    "App",
+    "TaskRunner",
+    "TaskHandle",
+    "TaskStatus",
+    "JobOutcome",
+    "Theme",
+    "Tokens",
+    "contrast_notes",
+    "DesktopWindow",
+    "TitleBar",
+    "TrayIcon",
+)
+
+
+def test_stable_api_does_not_shrink() -> None:
+    """``psi6.api.STABLE`` 不能少于已发布的名单。
+
+    拿掉一个名字时要同时改 ``_STABLE_NAMES``，并在 ``MIGRATION.md`` 写明移除。
+    """
+
+    exported = {attr for _module, attr in STABLE}
+    assert set(_STABLE_NAMES) <= exported
+
+
 def test_stable_api_imports() -> None:
     import ast
 

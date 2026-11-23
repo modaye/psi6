@@ -107,12 +107,23 @@
 | --- | --- |
 | `AppShell` / `NavDestination` | 见 [02](02-page-layouts.md) 侧栏。空标题不生成项 |
 | `Breadcrumb` | 当前节 `color_text` 字重 600，祖先 `color_muted`，分隔用 `chevron-right`。不换行，超出省略祖先 |
-| `UnderlineTabs` | 页内分段。文字页签，底有一条 2px `color_primary` 指示器，切换时在 `motion_ms` 内滑到新页签。`reduced_motion` 时直接到位。焦点内收在当前页签 |
-| `TabView` | 文档页签。条高 `control_height_sm`。选中项底部同样有一条滑动的 2px `color_primary`，不推动页签宽度。未选中字 `color_muted`。焦点内收。可关闭、可拖动；拖动时指示器直接跟到新位置。全部关掉显示空态 |
+| `UnderlineTabs` | 页内视图切换，例如「概览 / 详情 / 历史」。文字页签，底有一条 2px `color_primary` 指示器，切换时在 `motion_ms` 内滑到新页签。`reduced_motion` 时直接到位。不放文件图标、关闭按钮或修改点 |
+| `SegmentedControl` | 有限互斥选项，例如「列表 / 网格」。不是文档标签 |
+| `TabView` | 文档工作区。见下一节。不使用 `UnderlineTabs` 那条细指示线作为唯一选中态 |
 | `CommandPalette` | 浮层：`color_elevated`，1px 边，宽 560，顶距 80。输入用输入规则。结果行高 `row_height`，选中 `color_selected`。无阴影 |
 | `KbdHint` | 辅助档，填充 `color_sunken`，边 `color_border_subtle`，等宽 |
 
 `ShortcutBook` 不单独画外观，快捷键在命令和 `KbdHint` 上可见。
+
+### 文档工作区 `TabView`
+
+条高 `control_height_sm`。标签栏底是 `color_bg`，内容区是 `color_surface`。选中标签填 `color_surface`，字 `color_text`，底边 2px `color_primary` 铺满标签宽度，并盖住标签与内容之间的分隔，使当前标签成为内容的入口。未选中标签透明，字 `color_muted`；悬停填 `color_hover`、字 `color_text`。不画厚边框，不做胶囊。
+
+左图标、中标题、右关闭或修改点。修改点与关闭按钮不同时占位：未保存时画点，悬停改画关闭，保存后点消失。未选中且未悬停不画关闭；当前项画出关闭；悬停时关闭按钮底为 `color_hover`。固定的标签停在左侧，不画关闭，仍可由菜单关闭。
+
+宽度最小 112、默认 180、最大 240。放不下时标签条横向滚动，右侧放文档列表，列表可搜索并按最近使用排序。单击切换，中键关闭，拖动重排。双击空白只发信号，不擅自新建文档。`Ctrl+W` 关闭当前，`Ctrl+Tab` 回到上一份，`Ctrl+Shift+T` 恢复最近关闭且仍有效的文档，`Ctrl+1` 到 `Ctrl+9` 定位标签。拖出窗口不做。
+
+焦点环打开且焦点来自键盘时，环内收到当前标签。全部关掉显示空态。
 
 ## 展示
 
@@ -220,7 +231,7 @@
 | `DataTable` | 行悬停 / 选中 / 表头排序 / 空 / 忙 五态；排序筛选保留选中行与滚动位置 |
 | `TreeView` | 展开折叠箭头是主题图形，不是原生三角；行状态与表格一致 |
 | `UnderlineTabs` | 指示器滑到当前页签；`reduced_motion` 时直接到位 |
-| `TabView` | 选中底边 2px `color_primary`，切换时滑动；关闭按钮是主题图形；全部关掉显示空态 |
+| `TabView` | 选中标签与内容区同为 `color_surface`，底边 2px `color_primary` 铺满该标签宽度；未选中透明、字 `color_muted`。关闭按钮按悬停规则显隐。全部关掉显示空态 |
 | `AppShell` 导航项 | 每个目的地不同图标；选中是 `color_selected` + 左侧 2px `color_primary` 竖条 + 主色图标；聚焦时竖条仍在。`set_nav_accent(False)` 关掉竖条，只留选中填充，文字不位移。颜色跟主题的 `color_primary`，不另开字段 |
 | `Toast` | 出现在窗口下角；悬停暂停、移开按剩余时长继续；`reduced_motion` 下无动画 |
 | `Banner` | 关闭是无边框图标按钮，不用主色填充 |

@@ -267,9 +267,12 @@ def _positional_capacity(callback: Callable[..., Any]) -> int:
 
 
 class TaskRunner(QObject):
-    """UI 线程提交任务；工作在 ``QThreadPool``。禁止 ``QThread.terminate``。
+    """提交任务到 ``QThreadPool``。禁止 ``QThread.terminate``。
 
-    ``started`` / ``finished`` 在界面线程发出，参数是这一次的 ``TaskHandle``。
+    登记可以由非界面线程并发调用，互斥槽和关闭状态由锁保护。
+    ``on_busy`` 在调用 ``submit`` 的线程上同步执行。
+    ``started`` / ``finished`` 以及进度、日志、成功、失败、取消和 ``on_finished``
+    都在运行器所在线程发出。正常用法里，这个线程就是界面线程。
     """
 
     started = Signal(object)
@@ -284,7 +287,9 @@ class TaskRunner(QObject):
         self._callbacks: dict[str, _JobCallbacks] = {}
         self._slots: dict[str, TaskHandle] = {}
         self._accepting = True
+        self._submitting = 0
         self._lock = threading.Lock()
+        self._lifecycle = threading.Condition(self._lock)
         self._bus = _JobSignals(self)
         self._bus.progress.connect(self._on_progress, Qt.ConnectionType.QueuedConnection)
         self._bus.log.connect(self._on_log, Qt.ConnectionType.QueuedConnection)
@@ -317,11 +322,15 @@ class TaskRunner(QObject):
         """对未完成任务请求取消并等待线程池。返回是否在超时前排空。
 
         超时返回 ``False`` 时线程仍在运行，不会被强制结束。一旦调用，就不再接受
-        ``submit``。线程结束后先把已排队的进度、日志和收尾回调送回界面，再返回。
+        ``submit``。已经通过接受检查、尚未交给线程池的提交会先完成启动或放弃，
+        然后才取消并等待线程池。因此本方法返回之后，不会再有新任务被启动。
+        线程结束后先把已排队的进度、日志和收尾回调送回运行器所在线程，再返回。
         """
 
-        with self._lock:
+        with self._lifecycle:
             self._accepting = False
+            while self._submitting:
+                self._lifecycle.wait()
         self.cancel_all()
         if not self._pool.waitForDone(timeout_ms):
             return False
@@ -375,6 +384,9 @@ class TaskRunner(QObject):
         同一条仍会经 ``on_log`` 回到界面；不要把 journal 再当作 ``on_log``，否则会写两遍。
         ``on_finished`` 不声明参数时仍无参调用。声明一个位置参数时收到这次的 ``TaskHandle``。
         ``shutdown`` 之后再提交会抛 ``RuntimeError``。
+        任务登记和 ``QThreadPool.start`` 算同一次提交：``shutdown`` 会等到这次
+        ``start`` 返回或失败，再去等线程池。``on_busy`` 在当前调用线程上执行，
+        不要在里面再调用 ``shutdown``。
         """
 
         job_id = f"job-{next(self._seq)}-{uuid.uuid4().hex[:8]}"
@@ -459,7 +471,7 @@ class TaskRunner(QObject):
             on_cancelled=on_cancelled,
             on_finished=on_finished,
         )
-        with self._lock:
+        with self._lifecycle:
             if not self._accepting:
                 raise RuntimeError("TaskRunner 已关闭，不能再提交任务")
             if exclusive:
@@ -474,24 +486,40 @@ class TaskRunner(QObject):
             if rejected is None:
                 self._jobs[job_id] = handle
                 self._callbacks[job_id] = callbacks
+                self._submitting += 1
         if rejected is not None:
             if on_busy is not None:
                 _invoke(on_busy)
             return rejected
 
-        runnable = _JobRunnable(
-            job_id,
-            wrapped,
-            args,
-            kwargs,
-            signals,
-            cancel_flag,
-            inject,
-            contextvars.copy_context(),
-            handle,
-        )
+        started = False
+        try:
+            runnable = _JobRunnable(
+                job_id,
+                wrapped,
+                args,
+                kwargs,
+                signals,
+                cancel_flag,
+                inject,
+                contextvars.copy_context(),
+                handle,
+            )
+            self._start_job(runnable)
+            started = True
+            return handle
+        finally:
+            if not started:
+                self._release(job_id, handle)
+            with self._lifecycle:
+                self._submitting -= 1
+                if self._submitting == 0:
+                    self._lifecycle.notify_all()
+
+    def _start_job(self, runnable: QRunnable) -> None:
+        """把任务交给线程池。``shutdown`` 会等这一步返回。"""
+
         self._pool.start(runnable)
-        return handle
 
     @Slot(str)
     def _on_started(self, job_id: str) -> None:

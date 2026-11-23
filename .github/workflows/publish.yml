@@ -6,24 +6,74 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
+      - name: Install Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 libglib2.0-0 libxcb-cursor0
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
+      - name: Check tag matches pyproject
+        run: python scripts/check_release_version.py
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Install
+        run: uv sync --extra dev --frozen
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check src tests
+      - name: Type check
+        run: |
+          uv run mypy --platform win32
+          uv run mypy --platform linux
+          uv run mypy --platform darwin
+      - name: Test
+        run: uv run pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Check tag matches pyproject
+        run: python scripts/check_release_version.py
       - name: Build sdist and wheel
         run: uv build
+      - name: Check package contents and clean installs
+        shell: bash
+        run: |
+          python scripts/check_dist.py
+          WHEEL=$(ls dist/psi6-*.whl | head -1)
+          SDIST=$(ls dist/psi6-*.tar.gz | head -1)
+          uv run --isolated --no-project --with "$WHEEL" python -c "import psi6, sys; assert 'psi6.ui' not in sys.modules; from psi6 import App, Tokens; assert Tokens.light().color_bg == '#faf9f7'"
+          uv run --isolated --no-project --with "$WHEEL" python -c "from psi6.ui import DataTable; assert DataTable"
+          uv run --isolated --no-project --with "$WHEEL" python -m psi6 catalog --json >/tmp/psi6-catalog.json
+          uv run --isolated --no-project --with "$WHEEL" python -m psi6 theme light --check
+          uv run --isolated --no-project --with "$SDIST" python -c "import psi6; from psi6 import App"
+        env:
+          QT_QPA_PLATFORM: offscreen
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
   publish:
-    needs: build
+    needs: package
     runs-on: ubuntu-latest
     environment:
       name: pypi

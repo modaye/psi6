@@ -258,3 +258,109 @@ def test_closable_and_movable_flags_are_forwarded(qtbot: QtBot) -> None:
     tabs.add_tab("a", "A", QLabel("A"))
     assert tabs.close_tab("a") is True
     assert tabs.count() == 0
+
+
+def test_document_tabs_paint_their_own_close_button(qtbot: QtBot) -> None:
+    """关闭图形由标签条绘制。Qt 自带的叉保持关闭，避免两个叉叠在一起。"""
+
+    tabs = _view(qtbot)
+    qtab = tabs.findChild(QTabWidget)
+    assert qtab is not None
+    assert qtab.tabsClosable() is False
+    assert tabs._bar.document_closable() is True
+
+
+def test_width_close_and_modified_dot_follow_the_workspace_rules() -> None:
+    from psi6.ui.tab_item import (
+        MAX_TAB_WIDTH,
+        MIN_TAB_WIDTH,
+        PREFERRED_TAB_WIDTH,
+        close_visible,
+        modified_dot_visible,
+        tab_width,
+    )
+    from psi6.ui.tab_overflow import ordered_documents
+
+    assert MIN_TAB_WIDTH == 112
+    assert tab_width(20, has_icon=False) == PREFERRED_TAB_WIDTH
+    assert tab_width(4000, has_icon=True) == MAX_TAB_WIDTH
+    hidden = dict(closable=True, pinned=False, selected=False, hovered=False, modified=False)
+    assert close_visible(**hidden) is False
+    assert close_visible(**{**hidden, "hovered": True}) is True
+    assert close_visible(**{**hidden, "selected": True}) is True
+    assert close_visible(**{**hidden, "selected": True, "modified": True}) is False
+    assert close_visible(**{**hidden, "pinned": True, "hovered": True}) is False
+    assert modified_dot_visible(modified=True, showing_close=False) is True
+    assert modified_dot_visible(modified=True, showing_close=True) is False
+
+    rows = [("a", "Alpha"), ("b", "Beta"), ("c", "报表")]
+    assert [key for key, _title in ordered_documents(rows, ["c", "a"], "")] == ["c", "a", "b"]
+    assert ordered_documents(rows, ["c"], "be") == [("b", "Beta")]
+
+
+def test_metadata_is_optional_in_state(qtbot: QtBot) -> None:
+    tabs = _view(qtbot)
+    tabs.add_tab("a", "A", QLabel("A"))
+    tabs.add_tab("b", "B", QLabel("B"))
+    assert set(tabs.state()) == {"keys", "current"}
+
+    tabs.set_icon("b", "file")
+    tabs.set_path("b", "D:/work/b.txt")
+    tabs.set_modified("b", True)
+    tabs.set_pinned("b", True)
+    assert tabs.keys()[0] == "b"
+    payload = tabs.state()
+    assert payload["items"]["b"]["pinned"] is True
+
+    restored = _view(qtbot)
+    restored.add_tab("a", "A", QLabel("A"))
+    restored.add_tab("b", "B", QLabel("B"))
+    restored.set_state(payload)
+    assert restored.keys() == ["b", "a"]
+    assert restored.icon("b") == "file"
+    assert restored.path("b") == "D:/work/b.txt"
+    assert restored.modified("b") is True
+    assert restored.pinned("b") is True
+
+
+def test_middle_click_closes_and_reopen_restores(qtbot: QtBot) -> None:
+    from PySide6.QtCore import Qt
+
+    tabs = _view(qtbot)
+    tabs.resize(720, 280)
+    tabs.show()
+    first = QLabel("A")
+    tabs.add_tab("a", "A", first)
+    tabs.add_tab("b", "B", QLabel("B"))
+    tabs.set_pinned("a", True)
+    bar = tabs._bar
+    qtbot.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=bar.tabRect(0).center())
+    assert tabs.keys() == ["a", "b"]
+    qtbot.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=bar.tabRect(1).center())
+    assert tabs.keys() == ["a"]
+    assert tabs.reopen_last() is True
+    assert tabs.widget("b") is not None
+    assert tabs.current_key() == "b"
+
+
+def test_shortcuts_close_reopen_and_jump(qtbot: QtBot) -> None:
+    from PySide6.QtCore import Qt
+
+    tabs = _view(qtbot)
+    tabs.resize(720, 280)
+    tabs.show()
+    for key in ("a", "b", "c"):
+        tabs.add_tab(key, key.upper(), QLabel(key))
+    tabs.set_current("c")
+    tabs._bar.setFocus(Qt.FocusReason.ShortcutFocusReason)
+    qtbot.keyClick(tabs._bar, Qt.Key.Key_Tab, Qt.KeyboardModifier.ControlModifier)
+    assert tabs.current_key() == "b"
+    qtbot.keyClick(tabs._bar, Qt.Key.Key_1, Qt.KeyboardModifier.ControlModifier)
+    assert tabs.current_key() == "a"
+    qtbot.keyClick(tabs._bar, Qt.Key.Key_9, Qt.KeyboardModifier.ControlModifier)
+    assert tabs.current_key() == "c"
+    qtbot.keyClick(tabs._bar, Qt.Key.Key_W, Qt.KeyboardModifier.ControlModifier)
+    assert tabs.keys() == ["a", "b"]
+    modifiers = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
+    qtbot.keyClick(tabs._bar, Qt.Key.Key_T, modifiers)
+    assert tabs.current_key() == "c"

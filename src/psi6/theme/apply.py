@@ -795,6 +795,32 @@ QTabBar::close-button:pressed {{
     image: url("{icons["tab_close_on"]}");
     background: {pressed};
 }}
+/* 文档工作区自己绘制标签。这里只清掉传统页签的边框，避免和自绘叠成两层。 */
+QTabWidget#psi6TabViewTabs::pane {{
+    border: none;
+    border-radius: 0;
+    background: {t.color_surface};
+    top: 0px;
+}}
+QTabWidget#psi6TabViewTabs QTabBar::tab {{
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    min-height: 0px;
+}}
+QTabWidget#psi6TabViewTabs QTabBar::tab:selected,
+QTabWidget#psi6TabViewTabs QTabBar::tab:hover {{
+    background: transparent;
+    font-weight: 400;
+}}
+QTabWidget#psi6TabViewTabs QTabBar::tab:focus {{
+    border: none;
+    outline: none;
+    padding: 0;
+    min-height: 0px;
+}}
 QMenuBar {{
     background: {t.color_surface};
     border-bottom: 1px solid {t.color_border};

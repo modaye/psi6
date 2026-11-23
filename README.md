@@ -6,7 +6,7 @@
 
 ## 要求与支持平台
 
-- **Python**：≥ 3.13
+- **Python**：≥ 3.13。CI 在 3.13 上跑 Windows、Ubuntu、macOS，并在 Ubuntu 上另跑 3.14。尚未在 3.14 上做过桌面视觉验收。
 - **依赖**：`pyside6>=6.8`、`pydantic>=2.11`（Qt 是较大的二进制依赖，首次安装会拉取对应平台的 wheel）
 - **已验证**：Windows 本机，常规 DPI
 - **待补验证**：macOS、Linux，以及高 DPI（150%+）缩放——交互与视觉尚未在这些环境完整跑过。CI 已在三平台执行 wheel 冒烟测试，但功能/视觉验证待补。
@@ -67,9 +67,15 @@ raise SystemExit(app.run(window))
 
 ## 稳定边界（0.6.0）
 
-- 根包只导出 `psi6.api.STABLE` 名单：`App`、`TaskRunner`、`TaskHandle`、`TaskStatus`、`JobOutcome`、`Theme`、`Tokens`、`contrast_notes`、`DesktopWindow`、`TitleBar`、`TrayIcon`。0.x 内职责不变，新增参数带默认值。其它控件从 `psi6.ui` 导入。
-- 以 `_` 开头的模块是内部实现，不要直接依赖。
-- 主题 `Tokens` 的字段名与 `Theme` 子类接口是稳定契约。0.7 默认色板定为石墨铜；可选皮肤仍用同一组字段覆盖主色。
+| 层 | 兼容 |
+| --- | --- |
+| `psi6.api.STABLE` | 0.x 内职责不变。新增参数带默认值。名单变少时必须先写 `MIGRATION.md` |
+| `psi6.ui` | 公开可用，不逐个承诺稳定 |
+| `psi6.runtime` | 以文档里的公开入口为准。内部模块不保证兼容 |
+| `_` 开头的模块 | 内部实现，不要依赖 |
+
+- 根包只导出 `psi6.api.STABLE` 名单：`App`、`TaskRunner`、`TaskHandle`、`TaskStatus`、`JobOutcome`、`Theme`、`Tokens`、`contrast_notes`、`DesktopWindow`、`TitleBar`、`TrayIcon`。其它控件从 `psi6.ui` 导入。
+- 主题 `Tokens` 的字段名与 `Theme` 子类接口是稳定契约。默认色板定为石墨铜；可选皮肤仍用同一组字段覆盖主色。
 - 破坏性变更写入 `MIGRATION.md` 并升一个次版本。
 
 ## 一页窗口
@@ -274,7 +280,7 @@ tabs.restore_state(store, "demo")
 work.restore_state(store, "demo")
 ```
 
-- `TabView.state()` 只记 `keys` 顺序和 `current`，**不记控件**：状态里出现但没有对应控件的 key 会被忽略，当前多出来的标签追加到末尾，文件里少写几个 key 也丢不掉已打开的文档。`close_tab` 把控件交还调用方（`setParent(None)`，不销毁），需要复用就自己留引用。
+- `TabView.state()` 默认只记 `keys` 顺序和 `current`，**不记控件**。用过图标、路径、修改或固定时，才会多一个 `items`。状态里出现但没有对应控件的 key 会被忽略，当前多出来的标签追加到末尾，文件里少写几个 key 也丢不掉已打开的文档。`close_tab` 把控件交还调用方（`setParent(None)`，不销毁），需要复用就自己留引用。
 - `Workspace.state()` 记 `hidden` / `sizes` / `dragged`。宽度按 **栏名** 而不是下标保存，隐藏一栏后再恢复不会让其余栏的宽度串位；拖动释放后发 `layout_changed`，`set_pane_visible` 改变显隐时也发。
 - 两者都只做分栏与标签，**不提供 `QDockWidget` 浮动窗口或自由停靠**；文件不存在、损坏或字段类型不对时安全跳过，布局保持原样。
 - 布局写进 `tabs.json` / `layout.json`，与窗口几何的 `window.json` 分开；文件名可用构造参数 `state_file` 覆盖。
