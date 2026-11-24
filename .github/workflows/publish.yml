@@ -94,11 +94,29 @@ jobs:
       url: https://pypi.org/p/psi6
     permissions:
       id-token: write
+      contents: read
     steps:
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing always
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "dist:"
+            ls -la dist
+            uv publish --trusted-publishing always
+          } >publish-out.txt 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done <publish-out.txt
+            exit "$code"
+          fi
