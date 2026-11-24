@@ -14,14 +14,7 @@ from typing import Any
 
 from PySide6.QtCore import Property, QEvent, QObject, QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QKeyEvent, QPaintEvent
-from PySide6.QtWidgets import (
-    QApplication,
-    QStackedWidget,
-    QTabBar,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QStackedWidget, QTabBar, QTabWidget, QVBoxLayout, QWidget
 
 from psi6.runtime.config import ConfigStore
 from psi6.theme.paint import as_color, create_painter
@@ -34,33 +27,6 @@ from psi6.ui.tab_item import TabItem
 from psi6.ui.tab_overflow import TabOverflowButton
 
 _DEFAULT_STATE_FILE = "tabs.json"
-
-
-class _DocumentKeyFilter(QObject):
-    """在焦点位于这份文档区时接收 Ctrl+W / Ctrl+Tab 等快捷键。"""
-
-    def __init__(self, tabs: TabView) -> None:
-        app = QApplication.instance()
-        super().__init__(app)
-        self._tabs = tabs
-
-    def stop(self) -> None:
-        app = QApplication.instance()
-        if app is not None:
-            app.removeEventFilter(self)
-
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        del watched
-        if event.type() != QEvent.Type.KeyPress or not isinstance(event, QKeyEvent):
-            return False
-        if event.isAutoRepeat():
-            return False
-        focus = QApplication.focusWidget()
-        tabs = self._tabs
-        inside = focus is tabs or (focus is not None and tabs.isAncestorOf(focus))
-        if not inside:
-            return False
-        return tabs._dispatch_document_key(event)
 
 
 class _ActiveMark(QWidget):
@@ -225,7 +191,6 @@ class TabView(QWidget):
         self._bar.blank_activated.connect(self.blank_activated.emit)
         self._bar.tabMoved.connect(self._on_moved)
         self._mark = _ActiveMark(self._bar)
-        self._install_shortcuts()
         self.context_menu(self._document_menu)
         self._sync_empty()
 
@@ -594,15 +559,6 @@ class TabView(QWidget):
     def _refresh_overflow(self) -> None:
         needed = self._bar.count() > 0 and self._bar.sizeHint().width() > self._bar.width() + 8
         self._overflow.setVisible(needed)
-
-    def _install_shortcuts(self) -> None:
-        app = QApplication.instance()
-        if not isinstance(app, QApplication):
-            return
-        watcher = _DocumentKeyFilter(self)
-        app.installEventFilter(watcher)
-        self.destroyed.connect(watcher.stop)
-        self._key_filter = watcher
 
     def _dispatch_document_key(self, event: QKeyEvent) -> bool:
         """处理文档区快捷键。没对上的按键留给输入框。"""

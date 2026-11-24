@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QLabel, QStackedWidget, QTabWidget
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QLabel, QStackedWidget, QTabWidget, QWidget
 from pytestqt.qtbot import QtBot
 
 from psi6.runtime.config import ConfigStore
@@ -20,6 +22,18 @@ def _view(qtbot: QtBot, **kwargs: object) -> TabView:
 
 def _labels(count: int) -> list[QLabel]:
     return [QLabel(f"文档 {index}") for index in range(count)]
+
+
+def _chord(qtbot: QtBot, widget: QWidget, key: Qt.Key, modifiers: Qt.KeyboardModifier) -> None:
+    """点下组合键，再松开修饰键。
+
+    处理函数若在按下时改焦点，``keyClick`` 自己的松开不会清掉 Shift，
+    后面的表格选中就会变成范围选择。
+    """
+
+    qtbot.keyClick(widget, key, modifiers)
+    for extra in (Qt.Key.Key_Shift, Qt.Key.Key_Control, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
+        QTest.keyRelease(widget, extra)
 
 
 def test_add_tab_tracks_keys_titles_and_current(qtbot: QtBot) -> None:
@@ -344,8 +358,6 @@ def test_middle_click_closes_and_reopen_restores(qtbot: QtBot) -> None:
 
 
 def test_shortcuts_close_reopen_and_jump(qtbot: QtBot) -> None:
-    from PySide6.QtCore import Qt
-
     tabs = _view(qtbot)
     tabs.resize(720, 280)
     tabs.show()
@@ -353,14 +365,14 @@ def test_shortcuts_close_reopen_and_jump(qtbot: QtBot) -> None:
         tabs.add_tab(key, key.upper(), QLabel(key))
     tabs.set_current("c")
     tabs._bar.setFocus(Qt.FocusReason.ShortcutFocusReason)
-    qtbot.keyClick(tabs._bar, Qt.Key.Key_Tab, Qt.KeyboardModifier.ControlModifier)
+    _chord(qtbot, tabs._bar, Qt.Key.Key_Tab, Qt.KeyboardModifier.ControlModifier)
     assert tabs.current_key() == "b"
-    qtbot.keyClick(tabs._bar, Qt.Key.Key_1, Qt.KeyboardModifier.ControlModifier)
+    _chord(qtbot, tabs._bar, Qt.Key.Key_1, Qt.KeyboardModifier.ControlModifier)
     assert tabs.current_key() == "a"
-    qtbot.keyClick(tabs._bar, Qt.Key.Key_9, Qt.KeyboardModifier.ControlModifier)
+    _chord(qtbot, tabs._bar, Qt.Key.Key_9, Qt.KeyboardModifier.ControlModifier)
     assert tabs.current_key() == "c"
-    qtbot.keyClick(tabs._bar, Qt.Key.Key_W, Qt.KeyboardModifier.ControlModifier)
+    _chord(qtbot, tabs._bar, Qt.Key.Key_W, Qt.KeyboardModifier.ControlModifier)
     assert tabs.keys() == ["a", "b"]
     modifiers = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
-    qtbot.keyClick(tabs._bar, Qt.Key.Key_T, modifiers)
+    _chord(qtbot, tabs._bar, Qt.Key.Key_T, modifiers)
     assert tabs.current_key() == "c"
