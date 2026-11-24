@@ -16,7 +16,8 @@ def instance_key(organization: str, name: str) -> str:
 
     raw = f"psi6-{organization}-{name}"
     cleaned = re.sub(r"[^A-Za-z0-9._-]", "-", raw)
-    return cleaned[:120]
+    # macOS 的 unix socket 路径上限约 104 字节，还要加上临时目录。名字再长 listen 会失败。
+    return cleaned[:64]
 
 
 class SingleInstance(QObject):
@@ -79,11 +80,12 @@ class SingleInstance(QObject):
             raise ValueError(f"payload 长度必须在 1 到 {_MAX_PAYLOAD} 字节之间")
         socket = QLocalSocket(self)
         socket.connectToServer(self._key)
-        if not socket.waitForConnected(200):
+        # macOS 上临时目录里的套接字连上要稍慢一点。
+        if not socket.waitForConnected(1000):
             return False
         socket.write(data)
         socket.flush()
-        socket.waitForBytesWritten(200)
+        socket.waitForBytesWritten(1000)
         socket.disconnectFromServer()
         return True
 

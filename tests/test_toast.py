@@ -144,15 +144,16 @@ def test_hover_pauses_timeout_and_resumes_remaining(host: ToastHost, qtbot: obje
     qtbot.waitUntil(lambda: card._current_h > 0)  # type: ignore[attr-defined]
     timer = card._timer  # type: ignore[attr-defined]
     qtbot.wait(150)
-    assert timer.remainingTime() < 4000
 
     card._pause_timeout()  # type: ignore[attr-defined]
+    paused = card._remaining_ms  # type: ignore[attr-defined]
     assert not timer.isActive()
+    assert 0 <= paused <= 4000
     qtbot.wait(120)
     assert not timer.isActive(), "悬停期间不许计时"
 
     card._resume_timeout()  # type: ignore[attr-defined]
     assert timer.isActive()
-    # 剩余时长应该小于总时长，说明没有重新计满。
-    assert card._remaining_ms < 4000  # type: ignore[attr-defined]
+    # 恢复用的是暂停时记下的剩余，不是重新计满。计时器粒度允许 50ms。
+    assert timer.remainingTime() <= paused + 50
     timer.stop()

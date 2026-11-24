@@ -242,7 +242,7 @@ def test_desktop_window_applies_round_mask(qtbot: QtBot) -> None:
 
 def test_single_instance_second_fails(qtbot: QtBot) -> None:
     del qtbot
-    key = instance_key("psi6-test", f"lock-{uuid.uuid4().hex}")
+    key = instance_key("psi6-test", f"lock-{uuid.uuid4().hex[:8]}")
     first = SingleInstance(key)
     assert first.try_acquire()
     second = SingleInstance(key)
@@ -256,19 +256,19 @@ def test_single_instance_second_fails(qtbot: QtBot) -> None:
 def test_single_instance_only_accepts_its_payload(qtbot: QtBot) -> None:
     from PySide6.QtNetwork import QLocalSocket
 
-    key = instance_key("psi6-test", f"payload-{uuid.uuid4().hex}")
+    key = instance_key("psi6-test", f"pay-{uuid.uuid4().hex[:8]}")
     first = SingleInstance(key)
     assert first.try_acquire()
     try:
-        with qtbot.assertNotEmitted(first.activated, wait=150):
+        with qtbot.assertNotEmitted(first.activated, wait=200):
             socket = QLocalSocket()
             socket.connectToServer(key)
-            assert socket.waitForConnected(500)
+            assert socket.waitForConnected(2000)
             socket.write(b"not-the-payload")
             socket.flush()
-            socket.waitForBytesWritten(500)
+            socket.waitForBytesWritten(2000)
             socket.disconnectFromServer()
-            socket.waitForDisconnected(500)
+            socket.waitForDisconnected(2000)
         with qtbot.waitSignal(first.activated, timeout=3000):
             assert first.notify_existing()
     finally:
@@ -276,7 +276,7 @@ def test_single_instance_only_accepts_its_payload(qtbot: QtBot) -> None:
 
 
 def test_single_instance_custom_payload(qtbot: QtBot) -> None:
-    key = instance_key("psi6-test", f"custom-{uuid.uuid4().hex}")
+    key = instance_key("psi6-test", f"custom-{uuid.uuid4().hex[:8]}")
     first = SingleInstance(key, payload=b"custom-wake")
     assert first.try_acquire()
     second = SingleInstance(key, payload=b"custom-wake")

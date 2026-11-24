@@ -177,7 +177,11 @@ class ToastCard(QWidget):
 
         if self._dead or not self._timer.isActive():
             return
-        self._remaining_ms = max(0, self._timer.remainingTime())
+        # macOS 的粗粒度计时器可能比设定值多报 1ms。剩余时间不超过这次通知的原时长。
+        reported = self._timer.remainingTime()
+        if reported < 0:
+            reported = 0
+        self._remaining_ms = min(self._timeout_ms, reported)
         self._timer.stop()
 
     def _resume_timeout(self) -> None:
