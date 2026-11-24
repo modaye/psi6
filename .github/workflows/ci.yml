@@ -34,7 +34,17 @@ jobs:
           uv run mypy --platform linux
           uv run mypy --platform darwin
       - name: Test
-        run: uv run pytest --cov=psi6
+        shell: bash
+        run: |
+          set +e
+          uv run pytest --cov=psi6 --tb=line -q > pytest-out.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            uv run python scripts/annotate_pytest_log.py pytest-out.txt
+          fi
+          cat pytest-out.txt
+          exit "$code"
         env:
           QT_QPA_PLATFORM: offscreen
       - name: Build and smoke-test distributions
@@ -66,8 +76,17 @@ jobs:
       - name: Install
         run: uv sync --extra dev --python 3.14
       - name: Type check and test
+        shell: bash
         run: |
           uv run --python 3.14 mypy --platform linux
-          uv run --python 3.14 pytest
+          set +e
+          uv run --python 3.14 pytest --tb=line -q > pytest-out.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            uv run --python 3.14 python scripts/annotate_pytest_log.py pytest-out.txt
+          fi
+          cat pytest-out.txt
+          exit "$code"
         env:
           QT_QPA_PLATFORM: offscreen

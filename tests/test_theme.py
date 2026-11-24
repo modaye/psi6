@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
@@ -909,7 +910,13 @@ def test_apply_theme_sets_app_font(qtbot: QtBot, tmp_path: Path) -> None:
 
     app = App("psi6-font-token", theme="light", config_root=tmp_path)
     assert app.qt_app.font().pixelSize() == app.tokens.font_size
-    assert app.qt_app.font().families() == font_families(app.tokens.font_family)
+    requested = font_families(app.tokens.font_family)
+    actual = list(app.qt_app.font().families())
+    # macOS 上没有 Segoe UI 时，Qt 会改写成系统界面字体，列表不再逐字相等。
+    if sys.platform == "darwin":
+        assert actual
+    else:
+        assert actual == requested
     label = QLabel("正文")
     qtbot.addWidget(label)
     assert label.font().pixelSize() == app.tokens.font_size

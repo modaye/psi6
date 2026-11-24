@@ -32,8 +32,10 @@ def _chord(qtbot: QtBot, widget: QWidget, key: Qt.Key, modifiers: Qt.KeyboardMod
     """
 
     qtbot.keyClick(widget, key, modifiers)
-    for extra in (Qt.Key.Key_Shift, Qt.Key.Key_Control, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
-        QTest.keyRelease(widget, extra)
+    if modifiers & Qt.KeyboardModifier.ShiftModifier:
+        QTest.keyRelease(widget, Qt.Key.Key_Shift)
+    if modifiers & Qt.KeyboardModifier.ControlModifier:
+        QTest.keyRelease(widget, Qt.Key.Key_Control)
 
 
 def test_add_tab_tracks_keys_titles_and_current(qtbot: QtBot) -> None:
